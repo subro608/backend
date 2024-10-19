@@ -42,6 +42,15 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",  # For JWT Authentication
     "corsheaders",
 ]
+AUTH_USER_MODEL = 'accounts.User'
+
+# Email settings (for Gmail SMTP)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "subhrajitdey.agt@gmail.com"  # Replace with your actual email
+EMAIL_HOST_PASSWORD = "pand bouh jhbn cxhu"  # Replace with your actual email password
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -80,13 +89,27 @@ WSGI_APPLICATION = "househunt.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0bW15cmFwaXd6cXF6cG9icXF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjc1OTE4NjgsImV4cCI6MjA0MzE2Nzg2OH0.1IN70HvtW5tkJQ8dDN85TC7G2rhNcZpOctvRTYGhRFw'
+SUPABASE_URL = 'https://wtmmyrapiwzqqzpobqqv.supabase.co'
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',  # Your Supabase database name
+        'USER': 'postgres.wtmmyrapiwzqqzpobqqv',  # Your Supabase user
+        'PASSWORD': 'Ilovesupabase',  # Your Supabase password
+        'HOST': 'aws-0-us-east-1.pooler.supabase.com',  # Your Supabase URL
+        'PORT': '6543',
+        'OPTIONS': {
+            'sslmode': 'prefer',  # Ensure SSL connection
+        },
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

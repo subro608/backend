@@ -1,7 +1,11 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, Lessee
 
-
+class LesseeSerializer(serializers.ModelSerializer):
+    class Meta:
+        db_table = 'lessee_account'  # This sets the actual table name
+        model = Lessee
+        fields = ['name', 'guarantor_status']
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

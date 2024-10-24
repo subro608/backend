@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import User
-from .serializers import RegisterSerializer
+from .serializers import RegisterSerializer, LesseeSerializer
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail  # To send email
@@ -12,6 +12,44 @@ from django.utils.crypto import get_random_string
 from django.contrib.auth.backends import ModelBackend
 from rest_framework.authtoken.models import Token
 
+User = get_user_model()
+class LesseeSetupView(APIView):
+    def post(self, request):
+        user_email = request.data.get('email')  # Get the login email
+        name = request.data.get('name')
+        guarantor_status = request.data.get('guarantor_status')
+
+        # Validate email exists in the user database
+        try:
+            user = User.objects.filter(email=user_email).first()
+        except User.DoesNotExist:
+            return Response({"error": "Invalid email."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create a Lessee entry
+        lessee_data = {
+            'name': name,
+            'user_email': user_email,
+            'guarantor_status': guarantor_status,
+        }
+        serializer = LesseeSerializer(data=lessee_data)
+
+        if serializer.is_valid():
+            lessee = serializer.save(user=user)  # Save lessee info connected to user
+
+            # Send notification email
+            email_subject = "Lessee Setup Successful"
+            email_body = f"Dear {name}, your lessee information has been successfully recorded."
+            send_mail(
+                email_subject,
+                email_body,
+                'househunt.view@gmail.com',  # From email
+                [user_email],  # To email
+                fail_silently=False,
+            )
+
+            return Response({"message": "Lessee information saved successfully."}, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class RegisterView(APIView):
     def post(self, request):
         email = request.data.get("email")
@@ -37,7 +75,7 @@ class RegisterView(APIView):
             send_mail(
                 email_subject,
                 email_body,
-                'subhrajitdey.agt@gmail.com',  # From email
+                'househunt.view@gmail.com',  # From email
                 [email],  # To email
                 fail_silently=False,
             )
@@ -79,7 +117,7 @@ class VerifyEmailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-User = get_user_model()
+
 
 class LoginView(APIView):
     def post(self, request, *args, **kwargs):

@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import User
+from .models import User, Lessee
 from .serializers import RegisterSerializer, LesseeSerializer
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -11,25 +11,32 @@ from django.core.cache import cache  # To store verification codes temporarily
 from django.utils.crypto import get_random_string
 from django.contrib.auth.backends import ModelBackend
 from rest_framework.authtoken.models import Token
+from django.conf import settings
 
-User = get_user_model()
 class LesseeSetupView(APIView):
     def post(self, request):
-        user_email = request.data.get('email')  # Get the login email
+        user_email = request.data.get('email')
         name = request.data.get('name')
         guarantor_status = request.data.get('guarantor_status')
 
-        # Validate email exists in the user database
-        try:
-            user = User.objects.filter(email=user_email).first()
-        except User.DoesNotExist:
-            return Response({"error": "Invalid email."}, status=status.HTTP_400_BAD_REQUEST)
+        # Validate email has .edu extension
+        if not user_email.endswith('.edu'):
+            return Response({"error": "Only .edu email addresses are allowed."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create a Lessee entry
+        # Check if a user with this email exists
+        user = User.objects.filter(email=user_email).first()
+        if not user:
+            return Response({"error": "Invalid email. No user found with this email."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if a lessee account already exists for this user
+        if Lessee.objects.filter(user=user).exists():
+            return Response({"error": "Account already exists."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create a new Lessee entry associated with this user
         lessee_data = {
             'name': name,
-            'user_email': user_email,
             'guarantor_status': guarantor_status,
+            'email': user_email,  # Save email in Lessee
         }
         serializer = LesseeSerializer(data=lessee_data)
 
@@ -50,6 +57,9 @@ class LesseeSetupView(APIView):
             return Response({"message": "Lessee information saved successfully."}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+User = get_user_model()
 class RegisterView(APIView):
     def post(self, request):
         email = request.data.get("email")

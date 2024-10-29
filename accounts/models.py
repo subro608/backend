@@ -44,16 +44,17 @@ class Lessee(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        db_column='user_id',  # Use 'user_id' as defined in Supabase
-        primary_key=True  # Explicitly set user_id as the primary key
+        db_column='user_id',
+        primary_key=True
     )
     name = models.CharField(max_length=255)
+    email = models.EmailField()  # Independent email field, not a foreign key
     guarantor_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        managed = False  # Supabase manages the table schema
-        db_table = 'accounts_lessee'  # Ensure the table name matches Supabase
+        managed = False
+        db_table = 'accounts_lessee'
 
     def __str__(self):
-        return f"{self.name} - {self.user.email}"
+        return f"{self.name} - {self.email}"

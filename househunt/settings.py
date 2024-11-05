@@ -10,7 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -98,16 +102,14 @@ WSGI_APPLICATION = "househunt.wsgi.application"
 SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0bW15cmFwaXd6cXF6cG9icXF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjc1OTE4NjgsImV4cCI6MjA0MzE2Nzg2OH0.1IN70HvtW5tkJQ8dDN85TC7G2rhNcZpOctvRTYGhRFw'
 SUPABASE_URL = 'https://wtmmyrapiwzqqzpobqqv.supabase.co'
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',  # Your Supabase database name
-        'USER': 'postgres.wtmmyrapiwzqqzpobqqv',  # Your Supabase user
-        'PASSWORD': 'Ilovesupabase',  # Your Supabase password
-        'HOST': 'aws-0-us-east-1.pooler.supabase.com',  # Your Supabase URL
-        'PORT': '6543',
-        'OPTIONS': {
-            'sslmode': 'prefer',  # Ensure SSL connection
-        },
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("SUPABASE_DATABASE_NAME"),
+        "USER": os.getenv("SUPABASE_DATABASE_USER"),
+        "PASSWORD": os.getenv("SUPABASE_DATABASE_PASSWORD"),
+        "HOST": os.getenv("SUPABASE_DATABASE_HOST"),
+        "PORT": os.getenv("SUPABASE_DATABASE_PORT"),
+
     }
 }
 

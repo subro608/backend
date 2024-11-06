@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import User, Lessee
+from .models import User, Lessee, Lessor
 from .serializers import RegisterSerializer, LesseeSerializer
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -12,7 +12,7 @@ from django.utils.crypto import get_random_string
 from django.contrib.auth.backends import ModelBackend
 from rest_framework.authtoken.models import Token
 from django.conf import settings
-
+from rest_framework.permissions import IsAuthenticated
 class LesseeSetupView(APIView):
     def post(self, request):
         user_email = request.data.get('email')
@@ -58,6 +58,110 @@ class LesseeSetupView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class LessorSetupView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Extract data from request
+        name = request.data.get('name')
+        is_landlord = request.data.get('is_landlord', True)  # Default to landlord
+        document_id = request.data.get('document_id')
+        email = request.user.email  # Use the authenticated user's email
+
+        # Validate required fields
+        if not all([name, document_id]):
+            return Response({
+                "error": "All fields are required."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if lessor profile already exists
+        if Lessor.objects.filter(user=request.user).exists():
+            return Response({
+                "error": "Lessor profile already exists."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify document ID with ACRIS
+        verification_result = self.verify_with_acris(document_id, is_landlord)
+        if not verification_result['success']:
+            return Response({
+                "error": verification_result['message']
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create lessor profile
+        try:
+            lessor = Lessor.objects.create(
+                user=request.user,
+                name=name,
+                email=email,
+                is_landlord=is_landlord,
+                document_id=document_id,
+                is_verified=True,
+                verification_date=timezone.now()
+            )
+
+            # Send confirmation email
+            self.send_verification_email(lessor)
+
+            return Response({
+                "message": "Lessor profile created successfully.",
+                "is_verified": True,
+                "verification_date": lessor.verification_date
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({
+                "error": "Failed to create lessor profile.",
+                "details": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def verify_with_acris(self, document_id, is_landlord):
+        """
+        Mock ACRIS verification - Replace with actual ACRIS API integration
+        """
+        try:
+            # Mock API call to ACRIS database
+            # In production, replace with actual ACRIS API endpoint
+            response = {
+                'success': True,
+                'message': 'Document verified successfully'
+            }
+            
+            # Add actual verification logic here
+            return response
+
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Verification failed: {str(e)}"
+            }
+
+    def send_verification_email(self, lessor):
+        """
+        Send confirmation email to verified lessor
+        """
+        subject = "HouseHunt - Lessor Verification Successful"
+        message = f"""
+        Dear {lessor.name},
+
+        Your {('landlord' if lessor.is_landlord else 'broker')} profile has been successfully verified.
+        Document ID: {lessor.document_id}
+        Verification Date: {lessor.verification_date}
+
+        You can now start using HouseHunt's services.
+
+        Best regards,
+        The HouseHunt Team
+        """
+        
+        from django.core.mail import send_mail
+        send_mail(
+            subject,
+            message,
+            'househunt.view@gmail.com',
+            [lessor.email],
+            fail_silently=False,
+        )
+
 
 User = get_user_model()
 class RegisterView(APIView):
@@ -98,6 +202,7 @@ class RegisterView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 class VerifyEmailView(APIView):
     def post(self, request):
         verification_code = request.data.get("verification_code")
@@ -116,7 +221,9 @@ class VerifyEmailView(APIView):
             'email': cached_data['email'],
             'phone_number': cached_data['phone_number'],
             'password': cached_data['password'],  # Raw password to be hashed in the serializer
+            'is_verified': True,  # Directly set is_verified to True
         }
+
 
         serializer = RegisterSerializer(data=user_data)
         if serializer.is_valid():
@@ -125,8 +232,6 @@ class VerifyEmailView(APIView):
             return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
 
 
 class LoginView(APIView):

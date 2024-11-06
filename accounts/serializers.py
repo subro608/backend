@@ -1,6 +1,20 @@
 from rest_framework import serializers
-from .models import User, Lessee
+from .models import User, Lessee, Lessor
 
+class LessorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lessor
+        fields = ['name', 'email', 'is_landlord', 'document_id']
+        
+    def validate_document_id(self, value):
+        """
+        Validate document ID format
+        """
+        if not value.strip():
+            raise serializers.ValidationError("Document ID is required")
+        # Add specific format validation based on ACRIS requirements
+        return value.strip().upper()
+    
 class LesseeSerializer(serializers.ModelSerializer):
     email = serializers.EmailField() 
     class Meta:
@@ -10,19 +24,17 @@ class LesseeSerializer(serializers.ModelSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["email", "phone_number", "password"]
-        extra_kwargs = {"password": {"write_only": True}}
+        fields = ["email", "phone_number", "password", "is_verified"]
+        extra_kwargs = {
+            "password": {"write_only": True},
+        }
 
-    # def create(self, validated_data):
-    #     user = User.objects.create_user(
-    #         email=validated_data["email"],
-    #         phone_number=validated_data["phone_number"],
-    #         password=validated_data["password"],
-    #     )
-    #     # Send verification code (pseudo code)
-    #     # send_verification_code(user.email)
-    #     return user
     def create(self, validated_data):
-        # Create the user, but don't activate it yet.
-        user = User.objects.create_user(**validated_data)
+        # Create the user and set `is_verified` to True if needed
+        user = User.objects.create_user(
+            email=validated_data["email"],
+            phone_number=validated_data["phone_number"],
+            password=validated_data["password"],
+            is_verified=validated_data.get("is_verified", False)  # Default to False if not provided
+        )
         return user

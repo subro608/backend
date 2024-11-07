@@ -5,11 +5,13 @@ import uuid
 from django.conf import settings
 
 class UserManager(BaseUserManager):
-    def create_user(self, email, phone_number, password=None,is_verified=False, **extra_fields):
+    def create_user(self, email, phone_number, password=None, is_verified=False, role=None, **extra_fields):
         if not email:
             raise ValueError("The Email field must be set")
+        if role not in ['LESSEE', 'LESSOR']:
+            raise ValueError("Role must be 'LESSEE' or 'LESSOR'")
         email = self.normalize_email(email)
-        user = self.model(email=email, phone_number=phone_number, **extra_fields)
+        user = self.model(email=email, phone_number=phone_number, role=role, **extra_fields)
         user.set_password(password)
         user.verification_code = str(uuid.uuid4())[:6]  # Generate a 6-digit verification code
         user.verification_expiration = timezone.now() + timezone.timedelta(hours=1)  # Code expires in 1 hour
@@ -19,6 +21,11 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser):
+    ROLE_CHOICES = [
+        ('LESSEE', 'Lessee'),
+        ('LESSOR', 'Lessor'),
+    ]
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES)  # 'LESSEE' or 'LESSOR'
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, unique=True)
@@ -30,7 +37,7 @@ class User(AbstractBaseUser):
     created_at = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["phone_number"]
+    REQUIRED_FIELDS = ["phone_number", "role"]
 
     objects = UserManager()
 

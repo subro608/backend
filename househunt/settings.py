@@ -10,9 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -46,6 +48,15 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",  # For JWT Authentication
     "corsheaders",
 ]
+AUTH_USER_MODEL = "accounts.User"
+
+# Email settings (for Gmail SMTP)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "househunt.view@gmail.com"  # Replace with your actual email
+EMAIL_HOST_PASSWORD = "lxkw rjqb wlth wrmg"  # Replace with your actual email password
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -84,6 +95,13 @@ WSGI_APPLICATION = "househunt.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -95,6 +113,10 @@ DATABASES = {
     }
 }
 
+if (
+    "test" in sys.argv or "test_coverage" in sys.argv
+):  # Covers regular testing and django-coverage
+    DATABASES["default"]["ENGINE"] = "django.db.backends.sqlite3"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

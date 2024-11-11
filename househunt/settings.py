@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "accounts",
     "rest_framework_simplejwt",  # For JWT Authentication
     "corsheaders",
+    "properties",
 ]
 AUTH_USER_MODEL = "accounts.User"
 

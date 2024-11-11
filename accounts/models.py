@@ -99,8 +99,7 @@ class Lessor(models.Model):
         primary_key=True,
         to_field="id",  # Explicitly reference the UUID field
     )
-    name = models.CharField(max_length=255)
-    email = models.EmailField()
+
     is_landlord = models.BooleanField(default=True)
     document_id = models.CharField(max_length=50, unique=True)
     is_verified = models.BooleanField(default=False)

@@ -101,8 +101,7 @@ WSGI_APPLICATION = "househunt.wsgi.application"
 #         "NAME": BASE_DIR / "db.sqlite3",
 #     }
 # }
-SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0bW15cmFwaXd6cXF6cG9icXF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjc1OTE4NjgsImV4cCI6MjA0MzE2Nzg2OH0.1IN70HvtW5tkJQ8dDN85TC7G2rhNcZpOctvRTYGhRFw"
-SUPABASE_URL = "https://wtmmyrapiwzqqzpobqqv.supabase.co"
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",

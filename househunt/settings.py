@@ -10,9 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -46,7 +48,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",  # For JWT Authentication
     "corsheaders",
 ]
-AUTH_USER_MODEL = 'accounts.User'
+AUTH_USER_MODEL = "accounts.User"
 
 # Email settings (for Gmail SMTP)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -99,8 +101,8 @@ WSGI_APPLICATION = "househunt.wsgi.application"
 #         "NAME": BASE_DIR / "db.sqlite3",
 #     }
 # }
-SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0bW15cmFwaXd6cXF6cG9icXF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjc1OTE4NjgsImV4cCI6MjA0MzE2Nzg2OH0.1IN70HvtW5tkJQ8dDN85TC7G2rhNcZpOctvRTYGhRFw'
-SUPABASE_URL = 'https://wtmmyrapiwzqqzpobqqv.supabase.co'
+SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0bW15cmFwaXd6cXF6cG9icXF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjc1OTE4NjgsImV4cCI6MjA0MzE2Nzg2OH0.1IN70HvtW5tkJQ8dDN85TC7G2rhNcZpOctvRTYGhRFw"
+SUPABASE_URL = "https://wtmmyrapiwzqqzpobqqv.supabase.co"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -109,9 +111,13 @@ DATABASES = {
         "PASSWORD": os.getenv("SUPABASE_DATABASE_PASSWORD"),
         "HOST": os.getenv("SUPABASE_DATABASE_HOST"),
         "PORT": os.getenv("SUPABASE_DATABASE_PORT"),
-
     }
 }
+
+if (
+    "test" in sys.argv or "test_coverage" in sys.argv
+):  # Covers regular testing and django-coverage
+    DATABASES["default"]["ENGINE"] = "django.db.backends.sqlite3"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

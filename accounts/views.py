@@ -459,8 +459,8 @@ class LoginView(APIView):
 
         return Response(
             {
-                "refresh": str(refresh),
-                "access": access_token,
+                "refreshToken": str(refresh),
+                "token": access_token,
             },
             status=status.HTTP_200_OK,
         )

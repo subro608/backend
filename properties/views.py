@@ -28,6 +28,7 @@ class CreatePropertyListingView(APIView):
             )
 
         lessor = Lessor.objects.get(user=user)
+
         if not lessor.is_verified:
             return Response(
                 {

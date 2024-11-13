@@ -36,16 +36,17 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser):
-    ROLE_CHOICES = [
-        ("LESSEE", "Lessee"),
-        ("LESSOR", "Lessor"),
-    ]
-    role = models.CharField(
-        max_length=10, choices=ROLE_CHOICES, null=True
-    )  # 'LESSEE' or 'LESSOR'
+    class Role(models.IntegerChoices):
+        ADMIN = 1
+        LESSEE = 2
+        LESSOR = 3
+    role = models.IntegerField(
+        choices=Role.choices, null=True
+    )  # 'ADMIN','LESSEE' or 'LESSOR'
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=15, unique=True)
+    phone_number = models.CharField(max_length=10)
+    phone_code = models.CharField(max_length=3)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(
@@ -60,9 +61,16 @@ class User(AbstractBaseUser):
     created_at = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["phone_number", "role"]
+    REQUIRED_FIELDS = ["phone_number","phone_code","role"]
 
     objects = UserManager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("phone_number", "phone_code"), name="ux_phone", violation_error_message="User with given phone number already exists."
+            ),
+        ]
 
     def __str__(self):
         return self.email

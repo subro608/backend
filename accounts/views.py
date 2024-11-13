@@ -12,7 +12,7 @@ from django.utils.crypto import get_random_string
 from django.contrib.auth.backends import ModelBackend
 from rest_framework.authtoken.models import Token
 from django.conf import settings
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 
 class LesseeSetupView(APIView):
@@ -301,6 +301,7 @@ class RegisterView(APIView):
     def post(self, request):
         email = request.data.get("email")
         phone_number = request.data.get("phone_number")
+        phone_code = request.data.get("phone_code")
         password = request.data.get("password")
         role = request.data.get("role")  # Expecting 'LESSEE' or 'LESSOR'
 
@@ -314,7 +315,7 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
 
-            serializer.save()  # Save the user
+            user = serializer.save()  # Save the user
 
             # Generate a verification token
             verification_code = get_random_string(6, allowed_chars="0123456789")
@@ -322,12 +323,7 @@ class RegisterView(APIView):
             # Store the email, password, and phone_number in cache using verification code as the key
             cache.set(
                 f"verification_code_{verification_code}",
-                {
-                    "email": email,
-                    "phone_number": phone_number,
-                    "password": password,
-                    "role": role,
-                },
+                user,
                 timeout=600,
             )  # Cache for 10 minutes (600 seconds)
 
@@ -371,20 +367,15 @@ class VerifyEmailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        user = User.objects.get(id=cached_data.id)
         # Create the user using the cached data
         user_data = {
-            "email": cached_data["email"],
-            "phone_number": cached_data["phone_number"],
-            "password": cached_data[
-                "password"
-            ],  # Raw password to be hashed in the serializer
-            "is_verified": True,  # Directly set is_verified to True
-            "role": cached_data["role"],
+            "is_verified": True,
         }
 
-        serializer = RegisterSerializer(data=user_data)
+        serializer = RegisterSerializer(user, data=user_data, partial=True)
         if serializer.is_valid():
-            serializer.save()  # Save the user
+            serializer.save()  # update the user
             cache.delete(
                 f"verification_code_{verification_code}"
             )  # Remove the cached data after successful registration
@@ -436,14 +427,14 @@ class LoginView(APIView):
             )
 
         # Debugging - Check if the user's email is verified
-        # if not user.is_verified:
-        #     print("Email not verified")
-        #     return Response(
-        #         {
-        #             "error": "Your email has not been verified. Please verify your email before logging in."
-        #         },
-        #         status=status.HTTP_403_FORBIDDEN,
-        #     )
+        if not user.is_verified:
+            print("Email not verified")
+            return Response(
+                {
+                    "error": "Email Unverified"
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # Debugging - Check if the user is active
         if not user.is_active:
@@ -459,8 +450,12 @@ class LoginView(APIView):
 
         return Response(
             {
-                "refresh": str(refresh),
-                "access": access_token,
+                "refreshToken": str(refresh),
+                "token": access_token,
+                "user": {
+                    "email": user.email,
+                    "role":user.role
+                }
             },
             status=status.HTTP_200_OK,
         )

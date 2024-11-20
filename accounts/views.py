@@ -430,9 +430,7 @@ class LoginView(APIView):
         if not user.is_verified:
             print("Email not verified")
             return Response(
-                {
-                    "error": "Email Unverified"
-                },
+                {"error": "Email Unverified"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -452,10 +450,7 @@ class LoginView(APIView):
             {
                 "refreshToken": str(refresh),
                 "token": access_token,
-                "user": {
-                    "email": user.email,
-                    "role":user.role
-                }
+                "user": {"email": user.email, "role": user.role},
             },
             status=status.HTTP_200_OK,
         )

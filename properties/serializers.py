@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
+
 class LocationAnalysisSerializer(serializers.Serializer):
     location = serializers.CharField(required=True)
     radius = serializers.IntegerField(required=True, min_value=100, max_value=5000)
     property_id = serializers.CharField(max_length=255)
+
     def validate_radius(self, value):
         """
         Check that the radius is within reasonable bounds
@@ -11,6 +13,7 @@ class LocationAnalysisSerializer(serializers.Serializer):
         if value > 200:
             raise serializers.ValidationError("Radius cannot exceed 5000 meters")
         return value
+
 
 class PropertyImageSerializer(serializers.Serializer):
     property_id = serializers.CharField(max_length=255)

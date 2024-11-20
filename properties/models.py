@@ -47,11 +47,15 @@ class PropertyAmentities(models.Model):
     class Meta:
         managed = False
         db_table = "property_amentities"
+
+
 class PropertyPois(models.Model):
     id = models.AutoField(primary_key=True)  # Auto-incremented ID
     property_id = models.TextField()  # Foreign key to `properties` table
     poi_name = models.TextField()  # Name and type of the point of interest
-    poi_ratings = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)  # Ratings (nullable)
+    poi_ratings = models.DecimalField(
+        max_digits=3, decimal_places=1, null=True, blank=True
+    )  # Ratings (nullable)
     poi_type = models.TextField()  # Type/category of the POI
     distance = models.TextField()  # Distance from the property
     latitude = models.FloatField()  # Latitude of the POI
@@ -63,13 +67,14 @@ class PropertyPois(models.Model):
         managed = False
         db_table = "property_pois"  # Reference the existing `property_pois` table
 
+
 class PropertyImage(models.Model):
     id = models.AutoField(primary_key=True)  # Auto-incremented ID
     property = models.ForeignKey(
         Properties,  # Reference the Properties model
         on_delete=models.CASCADE,  # Delete images when the property is deleted
         db_column="property_id",  # Map to the property_id column in the database
-        related_name="images"  # Optional: Easier access to related images
+        related_name="images",  # Optional: Easier access to related images
     )
     file_name = models.TextField()  # Original file name
     url = models.URLField()  # Public URL of the uploaded file

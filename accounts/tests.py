@@ -20,14 +20,14 @@ def cleanup_test_databases(request):
 
     # Close all database connections
     connections.close_all()
-    
+
     # Wait a brief moment to ensure connections are fully closed
     time.sleep(1)
-    
+
     # Get the backend directory path
     backend_dir = Path(settings.BASE_DIR)
     test_db_pattern = "test_db_*.sqlite3"
-    
+
     # Find and remove all test database files
     max_attempts = 3
     for db_file in backend_dir.glob(test_db_pattern):
@@ -42,10 +42,13 @@ def cleanup_test_databases(request):
                     time.sleep(2)  # Wait a bit longer between attempts
                     connections.close_all()  # Try closing connections again
                 else:
-                    print(f"\nWarning: Could not remove {db_file} after {max_attempts} attempts")
+                    print(
+                        f"\nWarning: Could not remove {db_file} after {max_attempts} attempts"
+                    )
             except Exception as e:
                 print(f"\nUnexpected error while removing {db_file}: {e}")
                 break
+
 
 # Add this fixture to properly close connections after each test
 @pytest.fixture(autouse=True)
@@ -54,12 +57,14 @@ def _close_db_connections():
     yield
     connections.close_all()
 
+
 @pytest.mark.django_db
 class TestRegisterView:
 
     @pytest.fixture
     def client(self):
         return APIClient()
+
     def test_successful_registration(self, client):
         """
         Test that a new user can register successfully,
@@ -70,7 +75,7 @@ class TestRegisterView:
             "password": "newpassword@123",
             "phone_number": "9234512346",
             "phone_code": "+1",
-            "role": 2
+            "role": 2,
         }
         response = client.post(reverse("register"), payload)
 
@@ -85,7 +90,9 @@ class TestRegisterView:
         email_body = mail.outbox[0].body
 
         # Extract verification code from email
-        verification_code = re.search(r'verification code is: (\d{6})', email_body).group(1)
+        verification_code = re.search(
+            r"verification code is: (\d{6})", email_body
+        ).group(1)
         assert verification_code is not None
 
         # Verify the data is stored in cache with verification code as key
@@ -96,6 +103,7 @@ class TestRegisterView:
         assert cached_user.phone_code == payload["phone_code"]
         assert cached_user.role == payload["role"]
         assert not cached_user.is_verified
+
     def test_registration_with_existing_email(self, client):
         """
         Test that attempting to register with an email that already exists
@@ -106,7 +114,7 @@ class TestRegisterView:
             password="newpassword123",
             phone_number="9234512345",
             phone_code="+1",
-            role=2  # LESSEE role
+            role=2,  # LESSEE role
         )
 
         payload = {
@@ -114,7 +122,7 @@ class TestRegisterView:
             "password": "newpassword123",
             "phone_number": "9234512345",
             "phone_code": "+1",
-            "role": 2
+            "role": 2,
         }
         response = client.post(reverse("register"), payload)
 
@@ -135,15 +143,12 @@ class TestRegisterView:
             password="newpassword123",
             phone_number="9234512345",
             phone_code="+1",
-            role=2  # LESSEE role
+            role=2,  # LESSEE role
         )
         # Set user as verified
         user.is_verified = True
         user.save()
-        payload = {
-            "email": "existing@university.edu",
-            "password": "newpassword123"
-        }
+        payload = {"email": "existing@university.edu", "password": "newpassword123"}
 
         response = client.post(reverse("login"), payload)
 
@@ -166,13 +171,10 @@ class TestRegisterView:
             password="newpassword123",
             phone_number="9234512345",
             phone_code="+1",
-            role=2  # LESSEE role
+            role=2,  # LESSEE role
         )
 
-        payload = {
-            "email": "unverified@university.edu",
-            "password": "newpassword123"
-        }
+        payload = {"email": "unverified@university.edu", "password": "newpassword123"}
 
         response = client.post(reverse("login"), payload)
 

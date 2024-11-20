@@ -1,11 +1,12 @@
 from rest_framework import serializers
 from .models import User, Lessee, Lessor
 
+
 class LessorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lessor
-        fields = ['name', 'email', 'is_landlord', 'document_id']
-        
+        fields = ["name", "email", "is_landlord", "document_id"]
+
     def validate_document_id(self, value):
         """
         Validate document ID format
@@ -14,27 +15,37 @@ class LessorSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Document ID is required")
         # Add specific format validation based on ACRIS requirements
         return value.strip().upper()
-    
+
+
 class LesseeSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField() 
+    email = serializers.EmailField()
+
     class Meta:
-        db_table = 'accounts_lessee'  # This sets the actual table name
+        db_table = "accounts_lessee"  # This sets the actual table name
         model = Lessee
-        fields = ['name', 'guarantor_status', 'email']
+        fields = ["name", "guarantor_status", "email"]
+
 
 class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["email", "phone_number", "phone_code","password", "is_verified", "role"]
+        fields = [
+            "email",
+            "phone_number",
+            "phone_code",
+            "password",
+            "is_verified",
+            "role",
+        ]
         extra_kwargs = {
             "password": {"write_only": True},
         }
         validators = [
             serializers.UniqueTogetherValidator(
                 queryset=User.objects.all(),
-                fields=['phone_number', 'phone_code'],
-                message="User with given phone number already exists!"
+                fields=["phone_number", "phone_code"],
+                message="User with given phone number already exists!",
             )
         ]
 
@@ -45,7 +56,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             phone_number=validated_data["phone_number"],
             phone_code=validated_data["phone_code"],
             password=validated_data["password"],
-            is_verified=validated_data.get("is_verified", False),  # Default to False if not provided
-            role=validated_data["role"]
+            is_verified=validated_data.get(
+                "is_verified", False
+            ),  # Default to False if not provided
+            role=validated_data["role"],
         )
         return user

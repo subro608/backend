@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'django_extensions',
+    "django_extensions",
     "rest_framework",
     "accounts",
     "rest_framework_simplejwt",  # For JWT Authentication
@@ -107,10 +107,12 @@ WSGI_APPLICATION = "househunt.wsgi.application"
 import random
 import string
 
+
 def get_test_db_name():
     """Generate a unique test database name"""
-    random_suffix = ''.join(random.choices(string.ascii_lowercase, k=6))
+    random_suffix = "".join(random.choices(string.ascii_lowercase, k=6))
     return f"test_db_{random_suffix}"
+
 
 # Database configuration
 if "test" in sys.argv or "pytest" in sys.modules:
@@ -120,7 +122,7 @@ if "test" in sys.argv or "pytest" in sys.modules:
             "NAME": BASE_DIR / f"{get_test_db_name()}.sqlite3",
             "TEST": {
                 "NAME": BASE_DIR / f"{get_test_db_name()}.sqlite3",
-            }
+            },
         }
     }
 else:

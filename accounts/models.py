@@ -40,6 +40,7 @@ class User(AbstractBaseUser):
         ADMIN = 1
         LESSEE = 2
         LESSOR = 3
+
     role = models.IntegerField(
         choices=Role.choices, null=True
     )  # 'ADMIN','LESSEE' or 'LESSOR'
@@ -61,14 +62,16 @@ class User(AbstractBaseUser):
     created_at = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["phone_number","phone_code","role"]
+    REQUIRED_FIELDS = ["phone_number", "phone_code", "role"]
 
     objects = UserManager()
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=("phone_number", "phone_code"), name="ux_phone", violation_error_message="User with given phone number already exists."
+                fields=("phone_number", "phone_code"),
+                name="ux_phone",
+                violation_error_message="User with given phone number already exists.",
             ),
         ]
 

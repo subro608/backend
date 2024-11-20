@@ -23,6 +23,7 @@ from .serializers import CreatePropertyListingSerializer, PropertyImageSerialize
 import googlemaps
 from openai import OpenAI
 from dotenv import load_dotenv
+
 # from .serializers import PropertySerializer
 from django.utils import timezone
 import json
@@ -31,6 +32,7 @@ from .serializers import LocationAnalysisSerializer
 from supabase import create_client
 import os
 import tempfile
+
 # Load environment variables
 load_dotenv()
 
@@ -50,7 +52,7 @@ class SupabaseUploader:
     def upload_image(self, file_obj, file_name):
         temp_file = None
         temp_file_path = None
-        
+
         try:
             # Create a temporary file with a unique name
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -58,20 +60,25 @@ class SupabaseUploader:
                 # Write chunks to the temporary file
                 for chunk in file_obj.chunks():
                     temp_file.write(chunk)
-            
+
             # File is now closed, we can safely upload it
-            with open(temp_file_path, 'rb') as upload_file:
+            with open(temp_file_path, "rb") as upload_file:
                 response = self.client.storage.from_(self.bucket_name).upload(
-                    file_name,
-                    upload_file
+                    file_name, upload_file
                 )
 
             # Check for errors
-            if isinstance(response, dict) and "error" in response and response["error"] is not None:
+            if (
+                isinstance(response, dict)
+                and "error" in response
+                and response["error"] is not None
+            ):
                 raise Exception(response["error"]["message"])
 
             # Generate the public URL
-            public_url = self.client.storage.from_(self.bucket_name).get_public_url(file_name)
+            public_url = self.client.storage.from_(self.bucket_name).get_public_url(
+                file_name
+            )
             return public_url
 
         except Exception as e:
@@ -84,7 +91,7 @@ class SupabaseUploader:
                     os.unlink(temp_file_path)
             except Exception as cleanup_error:
                 print(f"Warning: Failed to delete temporary file: {cleanup_error}")
-        
+
 
 class PropertyImageUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -116,6 +123,8 @@ class PropertyImageUploadView(APIView):
             )
 
         return Response({"url": public_url}, status=status.HTTP_201_CREATED)
+
+
 def get_location_coordinates(location):
     """Get coordinates for a given location"""
     try:
@@ -131,22 +140,19 @@ def get_location_coordinates(location):
     except Exception as e:
         return None, str(e)
 
+
 def generate_area_analysis(location_info, radius):
     """Generate comprehensive area analysis using OpenAI"""
     lat, lng, address = location_info
 
     # Get nearby places
     try:
-        places_result = gmaps.places_nearby(
-            location=(lat, lng), 
-            radius=radius
-        )
+        places_result = gmaps.places_nearby(location=(lat, lng), radius=radius)
     except Exception as e:
         # Return empty analysis if Google Places API fails
-        return json.dumps({
-            "amenities": [],
-            "error": f"Failed to fetch nearby places: {str(e)}"
-        })
+        return json.dumps(
+            {"amenities": [], "error": f"Failed to fetch nearby places: {str(e)}"}
+        )
 
     # Create a structured prompt that enforces JSON output
     prompt = f"""Analyze the following places data and create a JSON response with the 5 most important places of interest for a university student.
@@ -187,13 +193,13 @@ def generate_area_analysis(location_info, radius):
             temperature=0.7,
             max_tokens=1000,
         )
-        
+
         # Get the response content
         content = response.choices[0].message.content.strip()
-        
+
         # Remove any potential markdown code blocks
         content = content.replace("```json", "").replace("```", "").strip()
-        
+
         # Validate JSON
         try:
             # Parse and re-serialize to ensure valid JSON
@@ -201,17 +207,16 @@ def generate_area_analysis(location_info, radius):
             return json.dumps(parsed_json)
         except json.JSONDecodeError:
             # If parsing fails, return a valid JSON error response
-            return json.dumps({
-                "amenities": [],
-                "error": "Failed to generate valid JSON analysis"
-            })
-            
+            return json.dumps(
+                {"amenities": [], "error": "Failed to generate valid JSON analysis"}
+            )
+
     except Exception as e:
         # Return valid JSON even in case of OpenAI API error
-        return json.dumps({
-            "amenities": [],
-            "error": f"Analysis generation failed: {str(e)}"
-        })
+        return json.dumps(
+            {"amenities": [], "error": f"Analysis generation failed: {str(e)}"}
+        )
+
 
 class LocationAnalysisView(APIView):
     # permission_classes = [IsAuthenticated]
@@ -223,16 +228,16 @@ class LocationAnalysisView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Ensure property_id is present
-        if 'property_id' not in serializer.validated_data:
+        if "property_id" not in serializer.validated_data:
             return Response(
                 {"error": "Missing 'property_id' in the request payload."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Extract data from serializer
-        property_id = serializer.validated_data['property_id']
-        location = serializer.validated_data['location']
-        radius = serializer.validated_data['radius']
+        property_id = serializer.validated_data["property_id"]
+        location = serializer.validated_data["location"]
+        radius = serializer.validated_data["radius"]
 
         # Get location coordinates
         location_info, error = get_location_coordinates(location)
@@ -250,7 +255,7 @@ class LocationAnalysisView(APIView):
         except Exception as e:
             return Response(
                 {"error": f"Failed to delete existing POI data: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         # Insert new POIs into the property_pois table
@@ -268,13 +273,15 @@ class LocationAnalysisView(APIView):
         except Exception as e:
             return Response(
                 {"error": f"Failed to save POI data: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        return Response({
-            "address": location_info[2],
-            "analysis": analysis_output
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {"address": location_info[2], "analysis": analysis_output},
+            status=status.HTTP_200_OK,
+        )
+
+
 class CreatePropertyListingView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -313,44 +320,54 @@ class CreatePropertyListingView(APIView):
             property_obj = Properties.objects.create(
                 id=uuid.uuid4(),  # Generate a UUID
                 lessor_id=lessor.user_id,  # Use `user_id` since it is the primary key
-                title=validated_data['title'],
-                street_adress=validated_data['street_address'],
-                city=validated_data['city'],
-                state=validated_data['state'],
-                zip_code=validated_data['zip_code'],
-                property_type=validated_data['property_type'],
-                bedrooms=validated_data['bedrooms'],
-                bathrooms=validated_data['bathrooms'],
+                title=validated_data["title"],
+                street_adress=validated_data["street_address"],
+                city=validated_data["city"],
+                state=validated_data["state"],
+                zip_code=validated_data["zip_code"],
+                property_type=validated_data["property_type"],
+                bedrooms=validated_data["bedrooms"],
+                bathrooms=validated_data["bathrooms"],
                 created_at=timezone.now(),
                 modified_at=timezone.now(),
-                available_since=validated_data['available_since'],
-                guarantor_required=validated_data['guarantor_required'],
-                additional_notes=validated_data.get('additional_notes', None),
+                available_since=validated_data["available_since"],
+                guarantor_required=validated_data["guarantor_required"],
+                additional_notes=validated_data.get("additional_notes", None),
             )
 
             # Add amenities to the `property_amentities` table
             PropertyAmentities.objects.create(
-                property_id=str(property_obj.id),  # Use the UUID from the properties table
-                air_conditioning=validated_data['air_conditioning'],
-                parking=validated_data['parking'],
-                dishwasher=validated_data['dishwasher'],
-                heating=validated_data['heating'],
-                gym=validated_data['gym'],
-                refrigerator=validated_data['refrigerator'],
-                laundry=validated_data['laundry'],
-                swimming_pool=validated_data['swimming_pool'],
-                microwave=validated_data['microwave'],
+                property_id=str(
+                    property_obj.id
+                ),  # Use the UUID from the properties table
+                air_conditioning=validated_data["air_conditioning"],
+                parking=validated_data["parking"],
+                dishwasher=validated_data["dishwasher"],
+                heating=validated_data["heating"],
+                gym=validated_data["gym"],
+                refrigerator=validated_data["refrigerator"],
+                laundry=validated_data["laundry"],
+                swimming_pool=validated_data["swimming_pool"],
+                microwave=validated_data["microwave"],
                 created_at=timezone.now(),
                 modified_at=timezone.now(),
             )
 
             return Response(
-                {"success": True, "error": False, "data": "Property and amenities added successfully."},
+                {
+                    "success": True,
+                    "error": False,
+                    "data": "Property and amenities added successfully.",
+                },
                 status=status.HTTP_201_CREATED,
             )
 
         except Exception as e:
             return Response(
-                {"success": False, "error": True, "data": f"An error occurred: {str(e)}"},
+                {
+                    "success": False,
+                    "error": True,
+                    "data": f"An error occurred: {str(e)}",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

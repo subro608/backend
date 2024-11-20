@@ -33,19 +33,22 @@ from supabase import create_client
 import os
 import tempfile
 
-# Load environment variables
-load_dotenv()
+from househunt.settings import (
+    OPENAI_API_KEY,
+    GOOGLE_MAPS_API_KEY,
+    SUPABASE_URL,
+    SUPABASE_KEY,
+)
 
 # Initialize clients
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY3"))
-gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_API_KEY"))
+client = OpenAI(api_key=OPENAI_API_KEY)
+gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
 
 
 class SupabaseUploader:
     def __init__(self):
         self.client = create_client(
-            os.getenv("SUPABASE_URL"),
-            os.getenv("SUPABASE_KEY"),
+            supabase_url=SUPABASE_URL, supabase_key=SUPABASE_KEY
         )
         self.bucket_name = "roomscout_media"
 

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from .models import Properties, PropertyAmenities, PropertyImage, PropertyPois
+
 
 class LocationAnalysisSerializer(serializers.Serializer):
     location = serializers.CharField(required=True)
@@ -41,3 +43,53 @@ class CreatePropertyListingSerializer(serializers.Serializer):
     laundry = serializers.BooleanField(default=False)
     swimming_pool = serializers.BooleanField(default=False)
     microwave = serializers.BooleanField(default=False)
+
+
+class DeletePropertySerializer(serializers.Serializer):
+    property_id = serializers.CharField(max_length=255)
+
+
+# class PropertyAmenitiesSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = PropertyAmenities
+#         fields = ["amenity"]
+
+
+# class PropertyPoisSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = PropertyPois
+#         fields = ["poi_name", "distance"]
+
+
+# class PropertyImageSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = PropertyImage
+#         fields = ["image_url"]
+
+
+# class PropertiesSerializer(serializers.ModelSerializer):
+
+#     amenities = PropertyAmenitiesSerializer(many=True, read_only=True)
+#     pois = PropertyPoisSerializer(many=True, read_only=True)
+#     images = PropertyImageSerializer(many=True, read_only=True)
+
+#     class Meta:
+#         model = Properties
+#         fields = [
+#             "id",
+#             "title",
+#             "street_address",
+#             "city",
+#             "state",
+#             "zip_code",
+#             "property_type",
+#             "bedrooms",
+#             "bathrooms",
+#             "created_at",
+#             "modified_at",
+#             "available_since",
+#             "guarantor_required",
+#             "amenities",
+#             "pois",
+#             "images",
+#         ]

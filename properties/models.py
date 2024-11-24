@@ -12,7 +12,7 @@ class Properties(models.Model):
     id = models.UUIDField(primary_key=True)
     lessor_id = models.TextField(blank=True, null=True)
     title = models.TextField(blank=True, null=True)
-    street_adress = models.TextField(blank=True, null=True)
+    street_address = models.TextField(blank=True, null=True)
     city = models.TextField(blank=True, null=True)
     state = models.TextField(blank=True, null=True)
     zip_code = models.SmallIntegerField(blank=True, null=True)
@@ -29,8 +29,21 @@ class Properties(models.Model):
         managed = False
         db_table = "properties"
 
+    def get_amenities(self):
+        """Fetch related amenities for this property."""
+        return PropertyAmenities.objects.filter(property_id=self.id)
 
-class PropertyAmentities(models.Model):
+    def get_images(self):
+        """Fetch related images for this property."""
+        return PropertyImage.objects.filter(property_id=self.id)
+
+    def get_pois(self):
+        """Fetch related POIs for this property."""
+        return PropertyPois.objects.filter(property_id=self.id)
+
+
+class PropertyAmenities(models.Model):
+
     property_id = models.TextField(primary_key=True)
     air_conditioning = models.BooleanField(blank=True, null=True)
     parking = models.BooleanField(blank=True, null=True)
@@ -70,12 +83,8 @@ class PropertyPois(models.Model):
 
 class PropertyImage(models.Model):
     id = models.AutoField(primary_key=True)  # Auto-incremented ID
-    property = models.ForeignKey(
-        Properties,  # Reference the Properties model
-        on_delete=models.CASCADE,  # Delete images when the property is deleted
-        db_column="property_id",  # Map to the property_id column in the database
-        related_name="images",  # Optional: Easier access to related images
-    )
+    property_id = models.TextField()  # Foreign key to `properties` table
+
     file_name = models.TextField()  # Original file name
     url = models.URLField()  # Public URL of the uploaded file
     uploaded_at = models.DateTimeField(auto_now_add=True)  # Timestamp for the upload

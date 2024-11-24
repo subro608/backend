@@ -18,20 +18,24 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 import uuid
 from accounts.models import Lessor
-from .models import Properties, PropertyAmentities, PropertyPois, PropertyImage
-from .serializers import CreatePropertyListingSerializer, PropertyImageSerializer
+from .models import Properties, PropertyAmenities, PropertyPois, PropertyImage
+from .serializers import (
+    CreatePropertyListingSerializer,
+    PropertyImageSerializer,
+    LocationAnalysisSerializer,
+    # PropertiesSerializer,
+    DeletePropertySerializer,
+)
 import googlemaps
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# from .serializers import PropertySerializer
 from django.utils import timezone
 import json
-from tempfile import gettempdir
-from .serializers import LocationAnalysisSerializer
 from supabase import create_client
 import os
 import tempfile
+from rest_framework.pagination import PageNumberPagination
 
 from househunt.settings import (
     OPENAI_API_KEY,
@@ -39,6 +43,8 @@ from househunt.settings import (
     SUPABASE_URL,
     SUPABASE_KEY,
 )
+
+from django.core.paginator import Paginator
 
 # Initialize clients
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -324,7 +330,7 @@ class CreatePropertyListingView(APIView):
                 id=uuid.uuid4(),  # Generate a UUID
                 lessor_id=lessor.user_id,  # Use `user_id` since it is the primary key
                 title=validated_data["title"],
-                street_adress=validated_data["street_address"],
+                street_address=validated_data["street_address"],
                 city=validated_data["city"],
                 state=validated_data["state"],
                 zip_code=validated_data["zip_code"],
@@ -339,7 +345,7 @@ class CreatePropertyListingView(APIView):
             )
 
             # Add amenities to the `property_amentities` table
-            PropertyAmentities.objects.create(
+            PropertyAmenities.objects.create(
                 property_id=str(
                     property_obj.id
                 ),  # Use the UUID from the properties table
@@ -363,6 +369,182 @@ class CreatePropertyListingView(APIView):
                     "data": "Property and amenities added successfully.",
                 },
                 status=status.HTTP_201_CREATED,
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "error": True,
+                    "data": f"An error occurred: {str(e)}",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+# API View to get all properties
+class GetPropertiesView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Check if the user is a valid lessor
+        if not Lessor.objects.filter(user=user).exists():
+            return Response(
+                {"error": "Only valid lessors can view their property listings."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lessor = Lessor.objects.get(user=user)
+
+        if not lessor:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Only valid lessors can view their property listings.",
+                    "error": True,
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        page = request.GET.get("page", 1)  # Default to page 1 if not provided
+
+        per_page = request.GET.get("per_page", 10)  # Default to 10 items per page
+
+        # Query properties data ordered by `created_at`
+        properties_query = Properties.objects.filter(lessor_id=lessor.user_id).order_by(
+            "-created_at"
+        )
+        paginator = Paginator(properties_query, per_page)
+
+        try:
+            properties_page = paginator.page(page)
+        except:
+            return Response(
+                {
+                    "data": None,
+                    "success": False,
+                    "error": True,
+                    "message": "Invalid page number",
+                },
+                status=400,
+            )
+
+        # Build response with related data
+        properties_data = []
+        for property in properties_page:
+            # Fetch related amenities, images, and POIs using helper methods
+            amenities = property.get_amenities().values()
+            images = list(property.get_images().values())
+            pois = list(property.get_pois().values())
+
+            print(amenities)
+
+            # Add the property data with related data
+            properties_data.append(
+                {
+                    "id": property.id,
+                    "title": property.title,
+                    "address": {
+                        "street_address": property.street_address,
+                        "city": property.city,
+                        "state": property.state,
+                        "zip_code": property.zip_code,
+                    },
+                    "details": {
+                        "bedrooms": property.bedrooms,
+                        "bathrooms": property.bathrooms,
+                        "property_type": property.property_type,
+                        "guarantor_required": property.guarantor_required,
+                    },
+                    "created_at": property.created_at,
+                    "amenities": amenities,
+                    "images": images,
+                    "pois": pois,
+                }
+            )
+
+        # Return paginated response
+        response = {
+            "total_count": paginator.count,
+            "total_pages": paginator.num_pages,
+            "current_page": properties_page.number,
+            "properties": properties_data,
+        }
+
+        return Response(
+            {
+                "error": False,
+                "data": response,
+                "success": True,
+                "message": "Properties returned successfully.",
+            },
+            status=200,
+        )
+
+
+# API View to delete a property
+
+
+class DeletePropertyView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+
+        user = request.user
+
+        lessor = Lessor.objects.get(user=user)
+
+        if not lessor:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Only valid lessors can delete their property listings.",
+                    "error": True,
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Validate input data
+        serializer = DeletePropertySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extract validated data
+        validated_data = serializer.validated_data
+
+        print(validated_data)
+
+        return Response(validated_data)
+
+        try:
+            # Delete the property from the `properties` table
+            property_obj = Properties.objects.get(
+                id=validated_data["property_id"], lessor_id=lessor.user_id
+            )
+
+            # Delete related amenities
+            PropertyAmenities.objects.filter(property_id=property_obj.id).delete()
+
+            # Delete related images
+            PropertyImage.objects.filter(property_id=property_obj.id).delete()
+
+            # Delete related POIs
+            PropertyPois.objects.filter(property_id=property_obj.id).delete()
+
+            # Delete the property
+            property_obj.delete()
+
+            return Response(
+                {
+                    "success": True,
+                    "error": False,
+                    "data": "Property and related data deleted successfully.",
+                },
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:

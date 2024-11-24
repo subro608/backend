@@ -4,7 +4,9 @@ from .views import (
     LocationAnalysisView,
     PropertyImageUploadView,
     GetPropertiesView,
+    PropertyWishlistView,
     DeletePropertyView,
+    RemoveWishlistView
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -13,5 +15,7 @@ urlpatterns = [
     path("analyze_location/", LocationAnalysisView.as_view(), name="analyze_location"),
     path("upload-image/", PropertyImageUploadView.as_view(), name="upload-image"),
     path("", GetPropertiesView.as_view(), name="get-properties"),
+    path('wishlist/', PropertyWishlistView.as_view(), name='property-wishlist'),
     path("delete", DeletePropertyView.as_view(), name="delete-property"),
+    path('remove/', RemoveWishlistView.as_view(), name='remove-from-wishlist'),
 ]

@@ -48,7 +48,16 @@ class CreatePropertyListingSerializer(serializers.Serializer):
 class DeletePropertySerializer(serializers.Serializer):
     property_id = serializers.CharField(max_length=255)
 
+class RemoveWishlistSerializer(serializers.Serializer):
+    lessee_id = serializers.CharField(required=True)
+    property_id = serializers.UUIDField(required=True)
 
+    class Meta:
+        fields = ['lessee_id', 'property_id']
+
+class WishlistSerializer(serializers.Serializer):
+    lessee_id = serializers.UUIDField(required=True)
+    property_id = serializers.UUIDField(required=True)
 # class PropertyAmenitiesSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = PropertyAmenities

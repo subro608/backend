@@ -1,7 +1,4 @@
 from django.shortcuts import render
-
-# Create your views here.
-
 import traceback
 from django.shortcuts import render
 from rest_framework.views import APIView
@@ -18,13 +15,15 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 import uuid
 from accounts.models import Lessor
-from .models import Properties, PropertyAmenities, PropertyPois, PropertyImage
+from .models import Properties, PropertyAmenities, PropertyPois, PropertyImage, PropertyWishlist
 from .serializers import (
     CreatePropertyListingSerializer,
     PropertyImageSerializer,
     LocationAnalysisSerializer,
     # PropertiesSerializer,
+    RemoveWishlistSerializer,
     DeletePropertySerializer,
+    WishlistSerializer
 )
 import googlemaps
 from openai import OpenAI
@@ -46,6 +45,7 @@ from househunt.settings import (
 
 from django.core.paginator import Paginator
 
+print(OPENAI_API_KEY, "OPENAI_API_KEYOPENAI_API_KEYOPENAI_API_KEY")
 # Initialize clients
 client = OpenAI(api_key=OPENAI_API_KEY)
 gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
@@ -228,7 +228,7 @@ def generate_area_analysis(location_info, radius):
 
 
 class LocationAnalysisView(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         # Validate input data
@@ -382,42 +382,121 @@ class CreatePropertyListingView(APIView):
             )
 
 
-# API View to get all properties
-class GetPropertiesView(APIView):
+class PropertyWishlistView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request):
+        try:
+            # Validate input data
+            serializer = WishlistSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {
+                        'success': False,
+                        'error': True,
+                        'message': serializer.errors
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            lessee_id = serializer.validated_data['lessee_id']
+            property_id = serializer.validated_data['property_id']
+
+            # Check if property exists
+            if not Properties.objects.filter(id=property_id).exists():
+                return Response(
+                    {
+                        'success': False,
+                        'error': True,
+                        'message': 'Property does not exist.'
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Create or update wishlist entry
+            wishlist_item, created = PropertyWishlist.objects.get_or_create(
+                lessee_id=lessee_id,
+                property_id=property_id,
+                defaults={'is_wishlist': True}
+            )
+
+            if not created:
+                # Toggle wishlist status if entry already exists
+                wishlist_item.is_wishlist = not wishlist_item.is_wishlist
+                wishlist_item.save()
+
+            return Response(
+                {
+                    'success': True,
+                    'error': False,
+                    'data': {
+                        'lessee_id': lessee_id,
+                        'property_id': property_id,
+                        'is_wishlist': wishlist_item.is_wishlist,
+                        'message': 'Property added to wishlist' if wishlist_item.is_wishlist else 'Property removed from wishlist'
+                    }
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': True,
+                    'message': f'An error occurred: {str(e)}'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+class GetPropertiesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
+        is_wishlist = request.GET.get('is_wishlist', 'false').lower() == 'true'  # Convert string to boolean
+        lessee_id = request.GET.get('lessee_id', None)
 
-        # Check if the user is a valid lessor
-        if not Lessor.objects.filter(user=user).exists():
-            return Response(
-                {"error": "Only valid lessors can view their property listings."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        print(f"Debug - is_wishlist: {is_wishlist}, type: {type(is_wishlist)}")
+        print(f"Debug - lessee_id: {lessee_id}, type: {type(lessee_id)}")
 
-        lessor = Lessor.objects.get(user=user)
-
-        if not lessor:
+        # If it's a wishlist request, we need lessee_id
+        if is_wishlist and not lessee_id:
             return Response(
                 {
                     "success": False,
-                    "message": "Only valid lessors can view their property listings.",
+                    "message": "lessee_id is required for wishlist.",
                     "error": True,
                 },
-                status=status.HTTP_403_FORBIDDEN,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        page = request.GET.get("page", 1)  # Default to page 1 if not provided
+        # Query properties data based on type
+        if is_wishlist:
+            # Get wishlist property IDs
+            wishlist_items = PropertyWishlist.objects.filter(
+                lessee_id=lessee_id,
+                is_wishlist=True
+            ).values_list('property_id', flat=True)
+            
+            print(f"Debug - wishlist_items: {list(wishlist_items)}")
+            
+            properties_query = Properties.objects.filter(id__in=wishlist_items)
+            
+            print(f"Debug - properties found: {properties_query.count()}")
+        else:
+            if not Lessor.objects.filter(user=user).exists():
+                return Response(
+                    {"error": "Only valid lessors can view their property listings."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-        per_page = request.GET.get("per_page", 10)  # Default to 10 items per page
+            lessor = Lessor.objects.get(user=user)
+            properties_query = Properties.objects.filter(lessor_id=lessor.user_id)
 
-        # Query properties data ordered by `created_at`
-        properties_query = Properties.objects.filter(lessor_id=lessor.user_id).order_by(
-            "-created_at"
-        )
-        paginator = Paginator(properties_query, per_page)
+        # Order by created_at
+        properties_query = properties_query.order_by("-created_at")
+        paginator = Paginator(properties_query, int(request.GET.get("per_page", 10)))
+        page = request.GET.get("page", 1)
 
         try:
             properties_page = paginator.page(page)
@@ -440,9 +519,6 @@ class GetPropertiesView(APIView):
             images = list(property.get_images().values())
             pois = list(property.get_pois().values())
 
-            print(amenities)
-
-            # Add the property data with related data
             properties_data.append(
                 {
                     "id": property.id,
@@ -460,13 +536,12 @@ class GetPropertiesView(APIView):
                         "guarantor_required": property.guarantor_required,
                     },
                     "created_at": property.created_at,
-                    "amenities": amenities,
+                    "amenities": list(amenities),
                     "images": images,
                     "pois": pois,
                 }
             )
 
-        # Return paginated response
         response = {
             "total_count": paginator.count,
             "total_pages": paginator.num_pages,
@@ -484,10 +559,68 @@ class GetPropertiesView(APIView):
             status=200,
         )
 
-
 # API View to delete a property
 
+class RemoveWishlistView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        try:
+            # Validate input data
+            serializer = RemoveWishlistSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {
+                        'success': False,
+                        'error': True,
+                        'message': serializer.errors
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
+            lessee_id = serializer.validated_data['lessee_id']
+            property_id = serializer.validated_data['property_id']
+
+            # Try to find and delete the wishlist entry
+            try:
+                wishlist_item = PropertyWishlist.objects.get(
+                    lessee_id=lessee_id,
+                    property_id=property_id,
+                    is_wishlist=True
+                )
+                wishlist_item.delete()
+                
+                return Response(
+                    {
+                        'success': True,
+                        'error': False,
+                        'data': {
+                            'lessee_id': lessee_id,
+                            'property_id': property_id,
+                            'message': 'Property successfully removed from wishlist'
+                        }
+                    },
+                    status=status.HTTP_200_OK
+                )
+                
+            except PropertyWishlist.DoesNotExist:
+                return Response(
+                    {
+                        'success': False,
+                        'error': True,
+                        'message': 'Property not found in wishlist'
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': True,
+                    'message': f'An error occurred: {str(e)}'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 class DeletePropertyView(APIView):
 
     permission_classes = [IsAuthenticated]

@@ -92,3 +92,16 @@ class PropertyImage(models.Model):
     class Meta:
         db_table = "property_images"  # Set table name
         managed = False  # Disable migrations if the table already exists
+
+class PropertyWishlist(models.Model):
+    id = models.AutoField(primary_key=True)
+    lessee_id = models.UUIDField()  # Changed to UUIDField to match accounts_lessee
+    property_id = models.UUIDField()
+    is_wishlist = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'property_wishlist'
+        unique_together = ('lessee_id', 'property_id')

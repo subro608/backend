@@ -14,6 +14,7 @@ import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import timedelta
 
 
 load_dotenv()
@@ -43,6 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_extensions",
     "rest_framework",
     "accounts",
     "rest_framework_simplejwt",  # For JWT Authentication
@@ -103,21 +105,38 @@ WSGI_APPLICATION = "househunt.wsgi.application"
 #     }
 # }
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("SUPABASE_DATABASE_NAME"),
-        "USER": os.getenv("SUPABASE_DATABASE_USER"),
-        "PASSWORD": os.getenv("SUPABASE_DATABASE_PASSWORD"),
-        "HOST": os.getenv("SUPABASE_DATABASE_HOST"),
-        "PORT": os.getenv("SUPABASE_DATABASE_PORT"),
-    }
-}
+import random
+import string
 
-if (
-    "test" in sys.argv or "test_coverage" in sys.argv
-):  # Covers regular testing and django-coverage
-    DATABASES["default"]["ENGINE"] = "django.db.backends.sqlite3"
+
+def get_test_db_name():
+    """Generate a unique test database name"""
+    random_suffix = "".join(random.choices(string.ascii_lowercase, k=6))
+    return f"test_db_{random_suffix}"
+
+
+# Database configuration
+if "test" in sys.argv or "pytest" in sys.modules:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / f"{get_test_db_name()}.sqlite3",
+            "TEST": {
+                "NAME": BASE_DIR / f"{get_test_db_name()}.sqlite3",
+            },
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("SUPABASE_DATABASE_NAME"),
+            "USER": os.getenv("SUPABASE_DATABASE_USER"),
+            "PASSWORD": os.getenv("SUPABASE_DATABASE_PASSWORD"),
+            "HOST": os.getenv("SUPABASE_DATABASE_HOST"),
+            "PORT": os.getenv("SUPABASE_DATABASE_PORT"),
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -167,3 +186,16 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+}
+
+
+# Custom Configs
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY3")
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")

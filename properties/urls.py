@@ -5,6 +5,7 @@ from .views import (
     PropertyImageUploadView,
     GetPropertiesView,
     DeletePropertyView,
+    GetPropertyDetailsView,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -14,4 +15,9 @@ urlpatterns = [
     path("upload-image/", PropertyImageUploadView.as_view(), name="upload-image"),
     path("", GetPropertiesView.as_view(), name="get-properties"),
     path("delete", DeletePropertyView.as_view(), name="delete-property"),
+    path(
+        "<str:property_id>",
+        GetPropertyDetailsView.as_view(),
+        name="get-property-details",
+    ),
 ]

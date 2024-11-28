@@ -23,6 +23,7 @@ class PropertyImageSerializer(serializers.Serializer):
 
 
 class CreatePropertyListingSerializer(serializers.Serializer):
+    rent = serializers.FloatField()
     title = serializers.CharField(max_length=255)
     street_address = serializers.CharField(max_length=255)
     city = serializers.CharField(max_length=100)
@@ -43,6 +44,10 @@ class CreatePropertyListingSerializer(serializers.Serializer):
     laundry = serializers.BooleanField(default=False)
     swimming_pool = serializers.BooleanField(default=False)
     microwave = serializers.BooleanField(default=False)
+
+
+class ModifyPropertyListingSerializer(serializers.Serializer):
+    property_id = serializers.CharField(max_length=255)
 
 
 class DeletePropertySerializer(serializers.Serializer):

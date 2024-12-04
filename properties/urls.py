@@ -7,6 +7,7 @@ from .views import (
     PropertyWishlistView,
     DeletePropertyView,
     RemoveWishlistView
+    GetPropertyDetailsView,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -18,4 +19,9 @@ urlpatterns = [
     path('wishlist/', PropertyWishlistView.as_view(), name='property-wishlist'),
     path("delete", DeletePropertyView.as_view(), name="delete-property"),
     path('remove/', RemoveWishlistView.as_view(), name='remove-from-wishlist'),
+    path(
+        "<str:property_id>",
+        GetPropertyDetailsView.as_view(),
+        name="get-property-details",
+    ),
 ]

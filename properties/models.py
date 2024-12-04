@@ -19,11 +19,13 @@ class Properties(models.Model):
     property_type = models.TextField(blank=True, null=True)
     bedrooms = models.FloatField(blank=True, null=True)
     bathrooms = models.FloatField(blank=True, null=True)
-    created_at = models.DateTimeField()
-    modified_at = models.DateTimeField(blank=True, null=True)
     available_since = models.DateField(blank=True, null=True)
     guarantor_required = models.BooleanField(blank=True, null=True)
     additional_notes = models.TextField(blank=True, null=True)
+    is_deleted = models.BooleanField(blank=True, null=True)
+    rent = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    created_at = models.DateTimeField()
+    modified_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False

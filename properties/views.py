@@ -367,7 +367,10 @@ class CreatePropertyListingView(APIView):
                 {
                     "success": True,
                     "error": False,
-                    "data": "Property and amenities added successfully.",
+                    "data": {
+                        "property_id": str(property_obj.id),
+                    },
+                    "message": "Property and amenities added successfully.",
                 },
                 status=status.HTTP_201_CREATED,
             )

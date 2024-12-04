@@ -47,6 +47,7 @@ from django.core.paginator import Paginator
 
 print(OPENAI_API_KEY, "OPENAI_API_KEYOPENAI_API_KEYOPENAI_API_KEY")
 # Initialize clients
+print("supabase", SUPABASE_URL, SUPABASE_KEY)
 client = OpenAI(api_key=OPENAI_API_KEY)
 gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
 
@@ -893,6 +894,8 @@ class GetPropertyDetailsView(APIView):
                 "bathrooms": property_obj.bathrooms,
                 "property_type": property_obj.property_type,
                 "guarantor_required": property_obj.guarantor_required,
+                "rent": property_obj.rent,
+                "available_since": property_obj.available_since
             },
             "created_at": property_obj.created_at,
             "modified_at": property_obj.modified_at,

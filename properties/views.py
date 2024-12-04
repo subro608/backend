@@ -22,7 +22,7 @@ from .serializers import (
     LocationAnalysisSerializer,
     RemoveWishlistSerializer,
     DeletePropertySerializer,
-    WishlistSerializer
+    WishlistSerializer,
     ModifyPropertyListingSerializer,
 )
 import googlemaps
@@ -452,7 +452,7 @@ class PropertyWishlistView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-class GetPropertiesView(APIView):
+class GetAllPropertiesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -709,14 +709,11 @@ class DeletePropertyView(APIView):
 
 # api view to modify a property
 class ModifyPropertyView(APIView):
-
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-
         try:
             user = request.user
-
             lessor = Lessor.objects.get(user=user)
 
             if not lessor:
@@ -734,16 +731,12 @@ class ModifyPropertyView(APIView):
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            # Extract validated data
             validated_data = serializer.validated_data
+            property_id = validated_data["property_id"]
 
-            print(validated_data)
-
-            # update property object to set is_deleted to True
-
-            # Add the property to the `properties` table
+            # Get the property object
             property_obj = Properties.objects.get(
-                id=validated_data["property_id"],
+                id=property_id,
                 lessor_id=lessor.user_id,
                 is_deleted=False,
             )
@@ -758,94 +751,79 @@ class ModifyPropertyView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            # update property object
+            # Update allowed property fields
+            property_fields = [
+                "additional_notes",
+                "rent",
+                "title",
+                "guarantor_required",
+                "available_since"
+            ]
 
-            title = request.data.get("title", None)
-
-            if title and title != property_obj.title:
-                property_obj.title = title
-
-            street_address = request.data.get("street_address", None)
-
-            if street_address and street_address != property_obj.street_address:
-                property_obj.street_address = street_address
-
-            city = request.data.get("city", None)
-
-            if city and city != property_obj.city:
-                property_obj.city = city
-
-            state = request.data.get("state", None)
-
-            if state and state != property_obj.state:
-                property_obj.state = state
-
-            zip_code = request.data.get("zip_code", None)
-
-            if zip_code and zip_code != property_obj.zip_code:
-                property_obj.zip_code = zip_code
-
-            property_type = request.data.get("property_type", None)
-
-            if property_type and property_type != property_obj.property_type:
-                property_obj.property_type = property_type
-
-            bedrooms = request.data.get("bedrooms", None)
-
-            if bedrooms and bedrooms != property_obj.bedrooms:
-                property_obj.bedrooms = bedrooms
-
-            bathrooms = request.data.get("bathrooms", None)
-
-            if bathrooms and bathrooms != property_obj.bathrooms:
-                property_obj.bathrooms = bathrooms
-
-            available_since = request.data.get("available_since", None)
-
-            if available_since and available_since != property_obj.available_since:
-                property_obj.available_since = available_since
-
-            guarantor_required = request.data.get("guarantor_required", None)
-
-            if (
-                guarantor_required
-                and guarantor_required != property_obj.guarantor_required
-            ):
-                property_obj.guarantor_required = guarantor_required
-
-            additional_notes = request.data.get("additional_notes", None)
-
-            if additional_notes and additional_notes != property_obj.additional_notes:
-                property_obj.additional_notes = additional_notes
-
-            air_conditioning = request.data.get("air_conditioning", None)
-
-            if air_conditioning and air_conditioning != property_obj.air_conditioning:
-                property_obj.air_conditioning = air_conditioning
-
-            parking = request.data.get("parking", None)
-
-            if parking and parking != property_obj.parking:
-                property_obj.parking = parking
-
-            dishwasher = request.data.get("dishwasher", None)
-
-            if dishwasher and dishwasher != property_obj.dishwasher:
-                property_obj.dishwasher = dishwasher
+            for field in property_fields:
+                value = request.data.get(field)
+                if value is not None:
+                    setattr(property_obj, field, value)
 
             property_obj.modified_at = timezone.now()
-
             property_obj.save()
+
+            # Update amenities in separate table
+            amenity_fields = [
+                "air_conditioning",
+                "parking",
+                "dishwasher",
+                "heating",
+                "gym",
+                "refrigerator",
+                "laundry",
+                "swimming_pool",
+                "microwave"
+            ]
+
+            # Get or create amenities object
+            amenities_obj, created = PropertyAmenities.objects.get_or_create(
+                property_id=str(property_id),
+                defaults={
+                    'created_at': timezone.now(),
+                    'modified_at': timezone.now()
+                }
+            )
+
+            # Update amenities
+            amenities_updated = False
+            for field in amenity_fields:
+                if field in request.data:
+                    value = request.data.get(field)
+                    if value is not None:
+                        setattr(amenities_obj, field, value)
+                        amenities_updated = True
+
+            if amenities_updated:
+                amenities_obj.modified_at = timezone.now()
+                amenities_obj.save()
 
             return Response(
                 {
                     "success": True,
                     "error": False,
-                    "data": "Property modified successfully.",
+                    "data": {
+                        "message": "Property updated successfully",
+                        "property_id": str(property_id)
+                    }
                 },
                 status=status.HTTP_200_OK,
             )
 
+        except Properties.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "error": True,
+                    "data": "Property not found",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
         except Exception as e:
             return Response(
                 {
@@ -862,25 +840,26 @@ class GetPropertyDetailsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, property_id):
-
-        # the url is like /api/properties/72eced0d-454b-4681-b4de-532d5589d404
-
         user = request.user
-
         lessor = Lessor.objects.get(user=user)
 
-        if not lessor:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Only valid lessors can delete their property listings.",
-                    "error": True,
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # Debug prints
+        print(f"Searching for property_id: {property_id}")
+        print(f"Current lessor_id: {lessor.user_id}")
+        
+        # Check if property exists at all
+        property_exists = Properties.objects.filter(id=property_id).first()
+        print(f"Property exists in DB: {property_exists}")
+        
+        if property_exists:
+            print(f"Property lessor_id: {property_exists.lessor_id}")
+            print(f"Property is_deleted: {property_exists.is_deleted}")
 
+        # Original query
         property_obj = Properties.objects.filter(
-            id=property_id, lessor_id=lessor.user_id, is_deleted=False
+            id=property_id, 
+            lessor_id=lessor.user_id,
+            is_deleted=False
         ).first()
 
         print(property_obj)

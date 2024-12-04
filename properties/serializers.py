@@ -19,7 +19,6 @@ class LocationAnalysisSerializer(serializers.Serializer):
 
 class PropertyImageSerializer(serializers.Serializer):
     property_id = serializers.CharField(max_length=255)
-    image = serializers.ImageField()  # Validate the image file
 
 
 class CreatePropertyListingSerializer(serializers.Serializer):
@@ -54,10 +53,10 @@ class DeletePropertySerializer(serializers.Serializer):
     property_id = serializers.CharField(max_length=255)
 
 
-# class PropertyAmenitiesSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = PropertyAmenities
-#         fields = ["amenity"]
+class PropertyAmenitiesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyAmenities
+        fields = ["property_id","air_conditioning","dishwasher","heating","gym","refrigerator","laundry","swimming_pool","microwave"]
 
 
 # class PropertyPoisSerializer(serializers.ModelSerializer):

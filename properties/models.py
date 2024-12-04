@@ -21,19 +21,19 @@ class Properties(models.Model):
     bathrooms = models.FloatField(blank=True, null=True)
     available_since = models.DateField(blank=True, null=True)
     guarantor_required = models.BooleanField(blank=True, null=True)
+    description = models.TextField()
     additional_notes = models.TextField(blank=True, null=True)
-    is_deleted = models.BooleanField(blank=True, null=True)
+    is_deleted = models.BooleanField(default=False, null=True)
     rent = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField()
     modified_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        managed = False
         db_table = "properties"
 
     def get_amenities(self):
         """Fetch related amenities for this property."""
-        return PropertyAmenities.objects.filter(property_id=self.id)
+        return PropertyAmenities.objects.filter(property_id=self.id).first()
 
     def get_images(self):
         """Fetch related images for this property."""
@@ -60,7 +60,6 @@ class PropertyAmenities(models.Model):
     modified_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        managed = False
         db_table = "property_amentities"
 
 
@@ -79,7 +78,6 @@ class PropertyPois(models.Model):
     updated_at = models.DateTimeField(auto_now=True)  # Timestamp for updates
 
     class Meta:
-        managed = False
         db_table = "property_pois"  # Reference the existing `property_pois` table
 
 
@@ -93,4 +91,15 @@ class PropertyImage(models.Model):
 
     class Meta:
         db_table = "property_images"  # Set table name
-        managed = False  # Disable migrations if the table already exists
+
+class PropertyWishlist(models.Model):
+    id = models.AutoField(primary_key=True)
+    lessee_id = models.UUIDField()  # Changed to UUIDField to match accounts_lessee
+    property_id = models.UUIDField()
+    is_wishlist = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'property_wishlist'
+        unique_together = ('lessee_id', 'property_id')

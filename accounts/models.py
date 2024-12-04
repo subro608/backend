@@ -34,12 +34,12 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-
-class User(AbstractBaseUser):
-    class Role(models.IntegerChoices):
+class Role(models.IntegerChoices):
         ADMIN = 1
         LESSEE = 2
         LESSOR = 3
+
+class User(AbstractBaseUser):
 
     role = models.IntegerField(
         choices=Role.choices, null=True
@@ -83,6 +83,14 @@ class User(AbstractBaseUser):
         """Check if the verification code is still valid."""
         return timezone.now() < self.verification_expiration
 
+class IDCardDocument(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file_name = models.TextField()
+    public_url = models.URLField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "idcard_documents"
 
 class Lessee(models.Model):
     user = models.OneToOneField(
@@ -92,12 +100,13 @@ class Lessee(models.Model):
         to_field="id",  # Explicitly reference the UUID field
     )
     name = models.CharField(max_length=255)
-    email = models.EmailField()  # Independent email field, not a foreign key
-    guarantor_status = models.BooleanField(default=False)
+    email = models.EmailField(unique=True)  # Independent email field, not a foreign key
+    document = models.OneToOneField(IDCardDocument, on_delete=models.CASCADE, to_field="id",null=True)
+    is_email_verified = models.BooleanField(default=False)
+    is_document_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        managed = False
         db_table = "accounts_lessee"
 
     def __str__(self):
@@ -120,7 +129,6 @@ class Lessor(models.Model):
 
     class Meta:
         db_table = "accounts_lessor"
-        managed = False  # Since you're using an existing table
 
     def __str__(self):
         return f"{self.name} - {'Landlord' if self.is_landlord else 'Broker'}"

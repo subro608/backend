@@ -25,6 +25,7 @@ from .serializers import (
     LocationAnalysisSerializer,
     DeletePropertySerializer,
     ModifyPropertyListingSerializer,
+    PropertyAmenitiesSerializer
 )
 import googlemaps
 from openai import OpenAI
@@ -58,7 +59,7 @@ class SupabaseUploader:
         )
         self.bucket_name = "roomscout_media"
 
-    def upload_image(self, file_obj, file_name):
+    def upload_file(self, file_obj, file_name):
         temp_file = None
         temp_file_path = None
 
@@ -101,8 +102,14 @@ class SupabaseUploader:
             except Exception as cleanup_error:
                 print(f"Warning: Failed to delete temporary file: {cleanup_error}")
 
+    def delete_file(self,file_path):
+        try:
+            self.client.storage.from_(self.bucket_name).remove([file_path])
+        except Exception as e:
+            raise Exception(f"Delete failed: {str(e)}")
 
 class PropertyImageUploadView(APIView):
+    permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -111,27 +118,40 @@ class PropertyImageUploadView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         property_id = serializer.validated_data["property_id"]
-        image = request.FILES["image"]  # In-memory file object
-
+        new_files = request.FILES.getlist("new_images")
+        deleted_file_ids = request.data["deleted_images"]
+        deleted_file_ids = json.loads(deleted_file_ids) if deleted_file_ids else []
         try:
-            # Upload the image to Supabase
             uploader = SupabaseUploader()
-            file_name = f"{property_id}/{image.name}"
-            public_url = uploader.upload_image(image, file_name)
 
-            # Save image metadata in the database
-            PropertyImage.objects.create(
-                property_id=property_id,
-                file_name=image.name,
-                url=public_url,
-            )
+            for file_id in deleted_file_ids:
+                print(file_id)
+                try:
+                    property_image = PropertyImage.objects.get(id=file_id)
+                    file_path = f"{property_image.property_id}/{property_image.file_name}"
+                    uploader.delete_file(file_path)
+                    property_image.delete()
+                except PropertyImage.DoesNotExist:
+                    return Response({"error":"Image does not exists"},status=status.HTTP_400_BAD_REQUEST)
+            
+            for file in new_files:
+                # Upload the image to Supabase
+                file_name = f"{property_id}/{file.name}"
+                public_url = uploader.upload_file(file, file_name)
+
+                # Save image metadata in the database
+                PropertyImage.objects.create(
+                    property_id=property_id,
+                    file_name=file.name,
+                    url=public_url,
+                )
         except Exception as e:
             return Response(
                 {"error": f"Failed to upload image: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        return Response({"url": public_url}, status=status.HTTP_201_CREATED)
+        return Response({"success": True}, status=status.HTTP_201_CREATED)
 
 
 def get_location_coordinates(location):
@@ -343,22 +363,24 @@ class CreatePropertyListingView(APIView):
                 guarantor_required=validated_data["guarantor_required"],
                 additional_notes=validated_data.get("additional_notes", None),
                 rent=validated_data.get("rent", 0),
+                description= validated_data.get("description")
             )
 
+            amenities = validated_data["amenities"]
             # Add amenities to the `property_amentities` table
             PropertyAmenities.objects.create(
                 property_id=str(
                     property_obj.id
                 ),  # Use the UUID from the properties table
-                air_conditioning=validated_data["air_conditioning"],
-                parking=validated_data["parking"],
-                dishwasher=validated_data["dishwasher"],
-                heating=validated_data["heating"],
-                gym=validated_data["gym"],
-                refrigerator=validated_data["refrigerator"],
-                laundry=validated_data["laundry"],
-                swimming_pool=validated_data["swimming_pool"],
-                microwave=validated_data["microwave"],
+                air_conditioning=amenities["air_conditioning"],
+                parking=amenities["parking"],
+                dishwasher=amenities["dishwasher"],
+                heating=amenities["heating"],
+                gym=amenities["gym"],
+                refrigerator=amenities["refrigerator"],
+                laundry=amenities["laundry"],
+                swimming_pool=amenities["swimming_pool"],
+                microwave=amenities["microwave"],
                 created_at=timezone.now(),
                 modified_at=timezone.now(),
             )
@@ -440,17 +462,16 @@ class GetPropertiesView(APIView):
         properties_data = []
         for property in properties_page:
             # Fetch related amenities, images, and POIs using helper methods
-            amenities = property.get_amenities().values()
+            amenities = property.get_amenities()
             images = list(property.get_images().values())
             pois = list(property.get_pois().values())
-
-            print(amenities)
 
             # Add the property data with related data
             properties_data.append(
                 {
                     "id": property.id,
                     "title": property.title,
+                    "rent": property.rent,
                     "address": {
                         "street_address": property.street_address,
                         "city": property.city,
@@ -462,9 +483,12 @@ class GetPropertiesView(APIView):
                         "bathrooms": property.bathrooms,
                         "property_type": property.property_type,
                         "guarantor_required": property.guarantor_required,
+                        "description":property.description
                     },
                     "created_at": property.created_at,
-                    "amenities": amenities,
+                    "amenities": PropertyAmenitiesSerializer(amenities).data,
+                    "available_since": property.available_since,
+                    "additional_notes":property.additional_notes,
                     "images": images,
                     "pois": pois,
                 }
@@ -666,6 +690,10 @@ class ModifyPropertyView(APIView):
 
             if bathrooms and bathrooms != property_obj.bathrooms:
                 property_obj.bathrooms = bathrooms
+            
+            description= request.data.get("description",None)
+            if description and description != property_obj.description:
+                property_obj.description = description
 
             available_since = request.data.get("available_since", None)
 

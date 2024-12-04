@@ -56,7 +56,17 @@ class DeletePropertySerializer(serializers.Serializer):
 class PropertyAmenitiesSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyAmenities
-        fields = ["property_id","air_conditioning","dishwasher","heating","gym","refrigerator","laundry","swimming_pool","microwave"]
+        fields = [
+            "property_id",
+            "air_conditioning",
+            "dishwasher",
+            "heating",
+            "gym",
+            "refrigerator",
+            "laundry",
+            "swimming_pool",
+            "microwave",
+        ]
 
 
 # class PropertyPoisSerializer(serializers.ModelSerializer):

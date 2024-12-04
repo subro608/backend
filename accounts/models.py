@@ -34,10 +34,12 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
+
 class Role(models.IntegerChoices):
-        ADMIN = 1
-        LESSEE = 2
-        LESSOR = 3
+    ADMIN = 1
+    LESSEE = 2
+    LESSOR = 3
+
 
 class User(AbstractBaseUser):
 
@@ -83,6 +85,7 @@ class User(AbstractBaseUser):
         """Check if the verification code is still valid."""
         return timezone.now() < self.verification_expiration
 
+
 class IDCardDocument(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     file_name = models.TextField()
@@ -91,6 +94,7 @@ class IDCardDocument(models.Model):
 
     class Meta:
         db_table = "idcard_documents"
+
 
 class Lessee(models.Model):
     user = models.OneToOneField(
@@ -101,7 +105,9 @@ class Lessee(models.Model):
     )
     name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)  # Independent email field, not a foreign key
-    document = models.OneToOneField(IDCardDocument, on_delete=models.CASCADE, to_field="id",null=True)
+    document = models.OneToOneField(
+        IDCardDocument, on_delete=models.CASCADE, to_field="id", null=True
+    )
     is_email_verified = models.BooleanField(default=False)
     is_document_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)

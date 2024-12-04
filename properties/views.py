@@ -895,7 +895,8 @@ class GetPropertyDetailsView(APIView):
                 "property_type": property_obj.property_type,
                 "guarantor_required": property_obj.guarantor_required,
                 "rent": property_obj.rent,
-                "available_since": property_obj.available_since
+                "available_since": property_obj.available_since,
+                "additional_notes": property_obj.additional_notes
             },
             "created_at": property_obj.created_at,
             "modified_at": property_obj.modified_at,

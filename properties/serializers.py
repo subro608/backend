@@ -43,6 +43,7 @@ class CreatePropertyListingSerializer(serializers.Serializer):
     laundry = serializers.BooleanField(default=False)
     swimming_pool = serializers.BooleanField(default=False)
     microwave = serializers.BooleanField(default=False)
+    description = serializers.CharField()
 
 
 class ModifyPropertyListingSerializer(serializers.Serializer):

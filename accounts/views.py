@@ -117,7 +117,7 @@ class LesseeSetupView(APIView):
                         document_file = request.FILES['document']
                         file_name = document_file.name
                         uploader = SupabaseUploader()
-                        public_url = uploader.upload_file(document_file,f"{user.id}/{document_file.name}")
+                        public_url = uploader.upload_file(document_file,f"{user.id}/{document_file.name}","roomscout_documents")
                         id_card = IDCardDocument.objects.create(
                             file_name = file_name,
                             public_url = public_url,

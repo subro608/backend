@@ -59,9 +59,11 @@ class SupabaseUploader:
         )
         self.bucket_name = "roomscout_media"
 
-    def upload_file(self, file_obj, file_name):
+    def upload_file(self, file_obj, file_name,bucket_name = ''):
         temp_file = None
         temp_file_path = None
+        if not bucket_name:
+            bucket_name = self.bucket_name
 
         try:
             # Create a temporary file with a unique name
@@ -343,6 +345,7 @@ class CreatePropertyListingView(APIView):
 
         # Extract validated data
         validated_data = serializer.validated_data
+        print(validated_data)
 
         try:
             # Add the property to the `properties` table
@@ -366,21 +369,20 @@ class CreatePropertyListingView(APIView):
                 description= validated_data.get("description")
             )
 
-            amenities = validated_data["amenities"]
             # Add amenities to the `property_amentities` table
             PropertyAmenities.objects.create(
                 property_id=str(
                     property_obj.id
                 ),  # Use the UUID from the properties table
-                air_conditioning=amenities["air_conditioning"],
-                parking=amenities["parking"],
-                dishwasher=amenities["dishwasher"],
-                heating=amenities["heating"],
-                gym=amenities["gym"],
-                refrigerator=amenities["refrigerator"],
-                laundry=amenities["laundry"],
-                swimming_pool=amenities["swimming_pool"],
-                microwave=amenities["microwave"],
+                air_conditioning=validated_data["air_conditioning"],
+                parking=validated_data["parking"],
+                dishwasher=validated_data["dishwasher"],
+                heating=validated_data["heating"],
+                gym=validated_data["gym"],
+                refrigerator=validated_data["refrigerator"],
+                laundry=validated_data["laundry"],
+                swimming_pool=validated_data["swimming_pool"],
+                microwave=validated_data["microwave"],
                 created_at=timezone.now(),
                 modified_at=timezone.now(),
             )

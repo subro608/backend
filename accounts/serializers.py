@@ -16,20 +16,28 @@ class LessorSerializer(serializers.ModelSerializer):
         # Add specific format validation based on ACRIS requirements
         return value.strip().upper()
 
+
 class IDCardDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = IDCardDocument
-        fields = ['file_name','public_url','uploaded_at']
+        fields = ["file_name", "public_url", "uploaded_at"]
 
 
 class LesseeSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
-    document = IDCardDocumentSerializer(read_only = True)
+    document = IDCardDocumentSerializer(read_only=True)
 
     class Meta:
         db_table = "accounts_lessee"  # This sets the actual table name
         model = Lessee
-        fields = ["name", "email","document","is_email_verified","is_document_verified"]
+        fields = [
+            "name",
+            "email",
+            "document",
+            "is_email_verified",
+            "is_document_verified",
+        ]
+
 
 class RegisterSerializer(serializers.ModelSerializer):
 

@@ -25,7 +25,7 @@ from .serializers import (
     LocationAnalysisSerializer,
     DeletePropertySerializer,
     ModifyPropertyListingSerializer,
-    PropertyAmenitiesSerializer
+    PropertyAmenitiesSerializer,
 )
 import googlemaps
 from openai import OpenAI
@@ -104,11 +104,12 @@ class SupabaseUploader:
             except Exception as cleanup_error:
                 print(f"Warning: Failed to delete temporary file: {cleanup_error}")
 
-    def delete_file(self,file_path):
+    def delete_file(self, file_path):
         try:
             self.client.storage.from_(self.bucket_name).remove([file_path])
         except Exception as e:
             raise Exception(f"Delete failed: {str(e)}")
+
 
 class PropertyImageUploadView(APIView):
     permission_classes = [IsAuthenticated]
@@ -130,12 +131,17 @@ class PropertyImageUploadView(APIView):
                 print(file_id)
                 try:
                     property_image = PropertyImage.objects.get(id=file_id)
-                    file_path = f"{property_image.property_id}/{property_image.file_name}"
+                    file_path = (
+                        f"{property_image.property_id}/{property_image.file_name}"
+                    )
                     uploader.delete_file(file_path)
                     property_image.delete()
                 except PropertyImage.DoesNotExist:
-                    return Response({"error":"Image does not exists"},status=status.HTTP_400_BAD_REQUEST)
-            
+                    return Response(
+                        {"error": "Image does not exists"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
             for file in new_files:
                 # Upload the image to Supabase
                 file_name = f"{property_id}/{file.name}"
@@ -366,7 +372,7 @@ class CreatePropertyListingView(APIView):
                 guarantor_required=validated_data["guarantor_required"],
                 additional_notes=validated_data.get("additional_notes", None),
                 rent=validated_data.get("rent", 0),
-                description= validated_data.get("description")
+                description=validated_data.get("description"),
             )
 
             # Add amenities to the `property_amentities` table
@@ -485,12 +491,12 @@ class GetPropertiesView(APIView):
                         "bathrooms": property.bathrooms,
                         "property_type": property.property_type,
                         "guarantor_required": property.guarantor_required,
-                        "description":property.description
+                        "description": property.description,
                     },
                     "created_at": property.created_at,
                     "amenities": PropertyAmenitiesSerializer(amenities).data,
                     "available_since": property.available_since,
-                    "additional_notes":property.additional_notes,
+                    "additional_notes": property.additional_notes,
                     "images": images,
                     "pois": pois,
                 }
@@ -692,8 +698,8 @@ class ModifyPropertyView(APIView):
 
             if bathrooms and bathrooms != property_obj.bathrooms:
                 property_obj.bathrooms = bathrooms
-            
-            description= request.data.get("description",None)
+
+            description = request.data.get("description", None)
             if description and description != property_obj.description:
                 property_obj.description = description
 

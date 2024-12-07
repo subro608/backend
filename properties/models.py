@@ -92,6 +92,7 @@ class PropertyImage(models.Model):
     class Meta:
         db_table = "property_images"  # Set table name
 
+
 class PropertyWishlist(models.Model):
     id = models.AutoField(primary_key=True)
     lessee_id = models.UUIDField()  # Changed to UUIDField to match accounts_lessee
@@ -101,5 +102,5 @@ class PropertyWishlist(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'property_wishlist'
-        unique_together = ('lessee_id', 'property_id')
+        db_table = "property_wishlist"
+        unique_together = ("lessee_id", "property_id")

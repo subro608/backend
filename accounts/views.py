@@ -26,6 +26,7 @@ signer = TimestampSigner()
 
 class LesseeSetupView(APIView):
     parser_classes = [MultiPartParser, FormParser]
+
     def post(self, request):
         # if request.user.role != 'LESSEE':
         #     return Response({"error": "User must be a LESSEE to set up a lessee profile."}, status=status.HTTP_403_FORBIDDEN)
@@ -85,75 +86,90 @@ class LesseeSetupView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def get(self,request,pk = None):
+
+    def get(self, request, pk=None):
         try:
-            user = User.objects.get(pk = pk)
+            user = User.objects.get(pk=pk)
         except User.DoesNotExist:
-            return Response({'error':'User not found'},status= status.HTTP_404_NOT_FOUND)
-        
-        try:
-            lessee_info = Lessee.objects.get(pk = pk)
-            serializer = LesseeSerializer(lessee_info)
-        except Lessee.DoesNotExist:
-            return Response({'error':{'message':'Profile not setup yet','status':1907}},status=status.HTTP_200_OK)
-        
-        return JsonResponse({'data':serializer.data}, status=status.HTTP_200_OK)
-        
-    
-    def put(self,request,pk = None):
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         try:
-            user = User.objects.get(pk = pk)
+            lessee_info = Lessee.objects.get(pk=pk)
+            serializer = LesseeSerializer(lessee_info)
+        except Lessee.DoesNotExist:
+            return Response(
+                {"error": {"message": "Profile not setup yet", "status": 1907}},
+                status=status.HTTP_200_OK,
+            )
+
+        return JsonResponse({"data": serializer.data}, status=status.HTTP_200_OK)
+
+    def put(self, request, pk=None):
+
+        try:
+            user = User.objects.get(pk=pk)
         except User.DoesNotExist:
-            return Response({'error':'User not found'},status= status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         serializer = LesseeSerializer(data=request.data)
 
         if serializer.is_valid():
-            if user.email == request.data['email']:
+            if user.email == request.data["email"]:
                 try:
                     with transaction.atomic():
-                        document_file = request.FILES['document']
+                        document_file = request.FILES["document"]
                         file_name = document_file.name
                         uploader = SupabaseUploader()
                         public_url = uploader.upload_file(document_file,f"{user.id}/{document_file.name}","roomscout_documents")
                         id_card = IDCardDocument.objects.create(
-                            file_name = file_name,
-                            public_url = public_url,
+                            file_name=file_name,
+                            public_url=public_url,
                         )
 
                         Lessee.objects.create(
-                            user_id = user.id,
-                            name = request.data['name'],
-                            email = request.data['email'],
-                            document_id = id_card.id,
-                            is_email_verified = True
+                            user_id=user.id,
+                            name=request.data["name"],
+                            email=request.data["email"],
+                            document_id=id_card.id,
+                            is_email_verified=True,
                         )
 
-                    return Response({"message":f"Created Lesse profile with existing email {id_card.id}"})
+                    return Response(
+                        {
+                            "message": f"Created Lesse profile with existing email {id_card.id}"
+                        }
+                    )
                 except Exception as e:
                     print(str(e))
-                    return Response({"error":"Failed to save information"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    return Response(
+                        {"error": "Failed to save information"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
             else:
                 try:
                     with transaction.atomic():
-                        document_file = request.FILES['document']
+                        document_file = request.FILES["document"]
                         file_name = document_file.name
                         uploader = SupabaseUploader()
-                        public_url = uploader.upload_file(document_file,f"{user.id}/{document_file.name}")
+                        public_url = uploader.upload_file(
+                            document_file, f"{user.id}/{document_file.name}"
+                        )
                         id_card = IDCardDocument.objects.create(
-                            file_name = file_name,
-                            public_url = public_url,
+                            file_name=file_name,
+                            public_url=public_url,
                         )
 
                         Lessee.objects.create(
-                            user_id = user.id,
-                            name = request.data['name'],
-                            email = request.data['email'],
-                            document_id = id_card.id
+                            user_id=user.id,
+                            name=request.data["name"],
+                            email=request.data["email"],
+                            document_id=id_card.id,
                         )
-                        email = request.data['email']
+                        email = request.data["email"]
                         token = signer.sign(email)
                         verification_url = f"{settings.FRONTEND_URL}/verify-email/?token={token}&role={Role.LESSEE}"
                         email_subject = "Please verify your email"
@@ -172,10 +188,11 @@ class LesseeSetupView(APIView):
                     )
                 except Exception as e:
                     print(str(e))
-                    return Response({"error":"Failed to save information"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    return Response(
+                        {"error": "Failed to save information"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-       
 
 
 class LessorSetupView(APIView):
@@ -422,7 +439,9 @@ class RegisterView(APIView):
             token = signer.sign(email)
             verification_url = f"{settings.FRONTEND_URL}/verify-email/?token={token}"
             email_subject = "Please verify your email"
-            email_body = f"Please verify your email by clicking the link: {verification_url}"
+            email_body = (
+                f"Please verify your email by clicking the link: {verification_url}"
+            )
             send_mail(
                 email_subject,
                 email_body,
@@ -453,12 +472,23 @@ class VerifyEmailView(APIView):
                 )
 
             try:
-                email = signer.unsign(verification_token,max_age=3600)
+                email = signer.unsign(verification_token, max_age=3600)
             except SignatureExpired:
-                return Response({"error":{"message":"Verification token has expired. Generate New one!","status":1905}},status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {
+                        "error": {
+                            "message": "Verification token has expired. Generate New one!",
+                            "status": 1905,
+                        }
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             except BadSignature:
-                return Response({"error":{"message":"Invalid Token!","status":1906}},status=status.HTTP_400_BAD_REQUEST)
-            
+                return Response(
+                    {"error": {"message": "Invalid Token!", "status": 1906}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             if not verification_role:
                 user = User.objects.get(email=email)
                 user_data = {
@@ -466,54 +496,67 @@ class VerifyEmailView(APIView):
                 }
                 user_serializer = RegisterSerializer(user, data=user_data, partial=True)
                 if user_serializer.is_valid():
-                    user_serializer.save() 
+                    user_serializer.save()
                     return Response(
                         {"message": "Email verified successfully!"},
                         status=status.HTTP_200_OK,
                     )
                 else:
-                    return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-                
-            elif verification_role == Role.LESSEE:
-                lessee = Lessee.objects.get(email = email)
-                lessee_data = {
-                    "is_email_verified": True
-                }
-                lessee_serializer = LesseeSerializer(lessee, data=lessee_data, partial=True)
-                if lessee_serializer.is_valid():
-                    lessee_serializer.save() 
                     return Response(
-                        {"message": "Email verified successfully!"},
-                        status=status.HTTP_200_OK,
+                        user_serializer.errors, status=status.HTTP_400_BAD_REQUEST
                     )
-                else:
-                    return Response(lessee_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-                
-            return Response({"error":{"message":"Something went wrong!"}},status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({"error":{"message":"Something went wrong!"}},status.HTTP_400_BAD_REQUEST)
 
-        
-    
+            elif verification_role == Role.LESSEE:
+                lessee = Lessee.objects.get(email=email)
+                lessee_data = {"is_email_verified": True}
+                lessee_serializer = LesseeSerializer(
+                    lessee, data=lessee_data, partial=True
+                )
+                if lessee_serializer.is_valid():
+                    lessee_serializer.save()
+                    return Response(
+                        {"message": "Email verified successfully!"},
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    return Response(
+                        lessee_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            return Response(
+                {"error": {"message": "Something went wrong!"}},
+                status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": {"message": "Something went wrong!"}},
+                status.HTTP_400_BAD_REQUEST,
+            )
+
     def generate_new_link(request):
         request_object = json.loads(request.body)
         verification_token = request_object.get("token")
         verification_role = request_object.get("role")
         if not verification_token:
             return JsonResponse(
-                {"error": {"message":"Verification token is required."}},
+                {"error": {"message": "Verification token is required."}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
             email = signer.unsign(verification_token)
         except BadSignature:
-            return JsonResponse({"error":{"message":"Invalid Token!","status":1906}},status=status.HTTP_400_BAD_REQUEST)
-        
+            return JsonResponse(
+                {"error": {"message": "Invalid Token!", "status": 1906}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if not verification_role:
             token = signer.sign(email)
             verification_url = f"{settings.FRONTEND_URL}/verify-email/?token={token}"
             email_subject = "Please verify your email"
-            email_body = f"Please verify your email by clicking the link: {verification_url}"
+            email_body = (
+                f"Please verify your email by clicking the link: {verification_url}"
+            )
             send_mail(
                 email_subject,
                 email_body,
@@ -531,9 +574,13 @@ class VerifyEmailView(APIView):
             )
         elif verification_role == Role.LESSEE:
             token = signer.sign(email)
-            verification_url = f"{settings.FRONTEND_URL}/verify-email/{token}?role={Role.LESSEE}"
+            verification_url = (
+                f"{settings.FRONTEND_URL}/verify-email/{token}?role={Role.LESSEE}"
+            )
             email_subject = "Please verify your email"
-            email_body = f"Please verify your email by clicking the link: {verification_url}"
+            email_body = (
+                f"Please verify your email by clicking the link: {verification_url}"
+            )
             send_mail(
                 email_subject,
                 email_body,
@@ -548,9 +595,9 @@ class VerifyEmailView(APIView):
                 status=status.HTTP_200_OK,
             )
         return JsonResponse(
-                {"error": {"message":"Retry Failed!"}},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            {"error": {"message": "Retry Failed!"}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class LoginView(APIView):
@@ -580,7 +627,7 @@ class LoginView(APIView):
         except User.DoesNotExist:
             print("User does not exist")
             return Response(
-                {"error": {"message":"Invalid email or password.","status":1901}},
+                {"error": {"message": "Invalid email or password.", "status": 1901}},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -588,7 +635,7 @@ class LoginView(APIView):
         if not user.check_password(password):
             print("Password is incorrect")
             return Response(
-                {"error": {"message":"Invalid email or password.","status":1901}},
+                {"error": {"message": "Invalid email or password.", "status": 1901}},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 

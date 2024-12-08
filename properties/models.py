@@ -26,6 +26,8 @@ class Properties(models.Model):
     rent = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField()
     modified_at = models.DateTimeField(blank=True, null=True)
+    latitude = models.FloatField(blank=True, null=True)  # New field
+    longitude = models.FloatField(blank=True, null=True)  # New field
 
     class Meta:
         managed = False

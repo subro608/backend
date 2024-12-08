@@ -190,110 +190,6 @@ class LessorSetupView(APIView):
         )
 
 
-# class LessorSetupView(APIView):
-
-#     def post(self, request):
-#         # Extract data from request
-#         name = request.data.get('name')
-#         is_landlord = request.data.get('is_landlord', True)  # Default to landlord
-#         document_id = request.data.get('document_id')
-#         email = request.user.email  # Use the authenticated user's email
-
-#         # Validate required fields
-#         if not all([name, document_id]):
-#             return Response({
-#                 "error": "All fields are required."
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Check if lessor profile already exists
-#         if Lessor.objects.filter(user=request.user).exists():
-#             return Response({
-#                 "error": "Lessor profile already exists."
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Verify document ID with ACRIS
-#         verification_result = self.verify_with_acris(document_id, is_landlord)
-#         if not verification_result['success']:
-#             return Response({
-#                 "error": verification_result['message']
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Create lessor profile
-#         try:
-#             lessor = Lessor.objects.create(
-#                 user=request.user,
-#                 name=name,
-#                 email=email,
-#                 is_landlord=is_landlord,
-#                 document_id=document_id,
-#                 is_verified=True,
-#                 verification_date=timezone.now()
-#             )
-
-#             # Send confirmation email
-#             self.send_verification_email(lessor)
-
-#             return Response({
-#                 "message": "Lessor profile created successfully.",
-#                 "is_verified": True,
-#                 "verification_date": lessor.verification_date
-#             }, status=status.HTTP_201_CREATED)
-
-#         except Exception as e:
-#             return Response({
-#                 "error": "Failed to create lessor profile.",
-#                 "details": str(e)
-#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#     def verify_with_acris(self, document_id, is_landlord):
-#         """
-#         Mock ACRIS verification - Replace with actual ACRIS API integration
-#         """
-#         try:
-#             # Mock API call to ACRIS database
-#             # In production, replace with actual ACRIS API endpoint
-#             response = {
-#                 'success': True,
-#                 'message': 'Document verified successfully'
-#             }
-
-#             # Add actual verification logic here
-#             return response
-
-#         except Exception as e:
-#             return {
-#                 'success': False,
-#                 'message': f"Verification failed: {str(e)}"
-#             }
-
-#     def send_verification_email(self, lessor):
-#         """
-#         Send confirmation email to verified lessor
-#         """
-#         subject = "HouseHunt - Lessor Verification Successful"
-#         message = f"""
-#         Dear {lessor.name},
-
-#         Your {('landlord' if lessor.is_landlord else 'broker')} profile has been successfully verified.
-#         Document ID: {lessor.document_id}
-#         Verification Date: {lessor.verification_date}
-
-#         You can now start using HouseHunt's services.
-
-#         Best regards,
-#         The HouseHunt Team
-#         """
-
-#         from django.core.mail import send_mail
-#         send_mail(
-#             subject,
-#             message,
-#             'househunt.view@gmail.com',
-#             [lessor.email],
-#             fail_silently=False,
-#         )
-
-
 User = get_user_model()
 
 
@@ -304,12 +200,6 @@ class RegisterView(APIView):
         phone_code = request.data.get("phone_code")
         password = request.data.get("password")
         role = request.data.get("role")  # Expecting 'LESSEE' or 'LESSOR'
-
-        # if role not in ["LESSEE", "LESSOR"]:
-        #     return Response(
-        #         {"error": "Role must be either 'LESSEE' or 'LESSOR'."},
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
 
         # Validate the data using the serializer
         serializer = RegisterSerializer(data=request.data)

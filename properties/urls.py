@@ -9,6 +9,10 @@ from .views import (
     RemoveWishlistView,
     ModifyPropertyView,
     GetPropertyDetailsView,
+    AddressValidationView,
+    LocationSearchView,
+    PropertyFilterView
+
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -21,9 +25,12 @@ urlpatterns = [
     path("delete", DeletePropertyView.as_view(), name="delete-property"),
     path('remove/', RemoveWishlistView.as_view(), name='remove-from-wishlist'),
     path("modify/", ModifyPropertyView.as_view(), name="modify-property"), 
+    path('validate_address/', AddressValidationView.as_view(), name='validate_address'),
     path(
         "<str:property_id>",
         GetPropertyDetailsView.as_view(),
         name="get-property-details",
     ),
+    path('search/location/', LocationSearchView.as_view(), name='location-search'),
+    path('search/filter/', PropertyFilterView.as_view(), name='property-filter'),
 ]

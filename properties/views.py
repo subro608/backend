@@ -326,7 +326,25 @@ class CreatePropertyListingView(APIView):
         validated_data = serializer.validated_data
 
         try:
-            # Add the property to the `properties` table
+            # Generate full address for geocoding
+            full_address = f"{validated_data['street_address']}, {validated_data['city']}, {validated_data['state']} {validated_data['zip_code']}"
+            
+            # Get coordinates using the existing function
+            location_info, error = get_location_coordinates(full_address)
+            
+            if not location_info:
+                return Response(
+                    {
+                        "success": False,
+                        "error": True,
+                        "data": f"Failed to get coordinates for address: {error}"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            latitude, longitude, formatted_address = location_info
+
+            # Add the property to the `properties` table with coordinates
             property_obj = Properties.objects.create(
                 id=uuid.uuid4(),  # Generate a UUID
                 lessor_id=lessor.user_id,  # Use `user_id` since it is the primary key
@@ -344,13 +362,13 @@ class CreatePropertyListingView(APIView):
                 guarantor_required=validated_data["guarantor_required"],
                 additional_notes=validated_data.get("additional_notes", None),
                 rent=validated_data.get("rent", 0),
+                latitude=latitude,  # Add latitude
+                longitude=longitude,  # Add longitude
             )
 
             # Add amenities to the `property_amentities` table
             PropertyAmenities.objects.create(
-                property_id=str(
-                    property_obj.id
-                ),  # Use the UUID from the properties table
+                property_id=str(property_obj.id),
                 air_conditioning=validated_data["air_conditioning"],
                 parking=validated_data["parking"],
                 dishwasher=validated_data["dishwasher"],
@@ -370,6 +388,11 @@ class CreatePropertyListingView(APIView):
                     "error": False,
                     "data": {
                         "property_id": str(property_obj.id),
+                        "coordinates": {
+                            "latitude": latitude,
+                            "longitude": longitude
+                        },
+                        "formatted_address": formatted_address
                     },
                     "message": "Property and amenities added successfully.",
                 },
@@ -385,7 +408,6 @@ class CreatePropertyListingView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
 
 class PropertyWishlistView(APIView):
     permission_classes = [IsAuthenticated]
@@ -914,3 +936,331 @@ class GetPropertyDetailsView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class AddressValidationView(APIView):
+
+    def post(self, request):
+        """
+        Validate address components by checking if they can be geocoded
+        
+        Request body should be:
+        {
+            "street_address": "123 Main St",
+            "city": "Anytown",
+            "state": "CA",
+            "zip_code": "12345"
+        }
+        """
+        # Extract address components
+        street_address = request.data.get('street_address', '').strip()
+        city = request.data.get('city', '').strip()
+        state = request.data.get('state', '').strip()
+        zip_code = str(request.data.get('zip_code', '')).strip()
+
+        # Validate that required fields are present
+        if not all([street_address, city, state, zip_code]):
+            return Response({
+                'success': False,
+                'error': True,
+                'message': 'All address components (street, city, state, zip) are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Construct full address string
+            full_address = f"{street_address}, {city}, {state} {zip_code}"
+
+            # Initialize Google Maps client
+            gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
+
+            # Attempt to geocode the address
+            geocode_result = gmaps.geocode(full_address)
+
+            # Check if geocoding returned any results
+            if geocode_result:
+                # Validate each component against the geocoded result
+                formatted_address = geocode_result[0]['formatted_address']
+                address_components = geocode_result[0]['address_components']
+
+                # Initialize validation results
+                validated_components = {
+                    'street_address': False,
+                    'city': False,
+                    'state': False,
+                    'zip_code': False
+                }
+
+                # Check components
+                for component in address_components:
+                    if 'street_number' in component['types'] or 'route' in component['types']:
+                        validated_components['street_address'] = True
+                    
+                    if 'locality' in component['types'] and city.lower() in component['long_name'].lower():
+                        validated_components['city'] = True
+                    
+                    if 'administrative_area_level_1' in component['types'] and state.upper() == component['short_name']:
+                        validated_components['state'] = True
+                    
+                    if 'postal_code' in component['types'] and zip_code in component['long_name']:
+                        validated_components['zip_code'] = True
+
+                # Generate error messages for invalid components
+                error_messages = []
+                if not validated_components['street_address']:
+                    error_messages.append("Street address is incorrect or not found")
+                if not validated_components['city']:
+                    error_messages.append("City name is incorrect or not found")
+                if not validated_components['state']:
+                    error_messages.append("State is incorrect or not found")
+                if not validated_components['zip_code']:
+                    error_messages.append("ZIP code is incorrect or not found")
+
+                # Determine overall legitimacy
+                is_legit = all(validated_components.values())
+
+                return Response({
+                    'success': True,
+                    'error': False,
+                    'data': {
+                        'legit': is_legit,
+                        'formatted_address': formatted_address,
+                        'validated_components': validated_components,
+                        'error_messages': error_messages if error_messages else None
+                    }
+                }, status=status.HTTP_200_OK)
+            else:
+                # No results found, address is not valid
+                return Response({
+                    'success': True,
+                    'error': False,
+                    'data': {
+                        'legit': False,
+                        'validated_components': {
+                            'street_address': False,
+                            'city': False,
+                            'state': False,
+                            'zip_code': False
+                        },
+                        'error_messages': ["Address not found or invalid"]
+                    }
+                }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            # Handle any errors in geocoding (network, API issues)
+            return Response({
+                'success': False,
+                'error': True,
+                'message': f'Address validation failed: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+import math
+class LocationSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Search properties by location with radius
+        params:
+        - location: string (required) - address, borough, or neighborhood
+        - radius: int (in kilometers, default: 5)
+        - page: int
+        - per_page: int
+        """
+        try:
+            location = request.GET.get('location')
+            radius = int(request.GET.get('radius', 5))
+            page = int(request.GET.get('page', 1))
+            per_page = int(request.GET.get('per_page', 10))
+
+            if not location:
+                return Response({
+                    'success': False,
+                    'error': True,
+                    'message': 'Location parameter is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get coordinates from Google Maps
+            gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
+            geocode_result = gmaps.geocode(location)
+
+            if not geocode_result:
+                return Response({
+                    'success': False,
+                    'error': True,
+                    'message': 'Location not found'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            # Get center coordinates
+            center_lat = geocode_result[0]['geometry']['location']['lat']
+            center_lng = geocode_result[0]['geometry']['location']['lng']
+            formatted_address = geocode_result[0]['formatted_address']
+
+            # Calculate search area
+            lat_range = radius / 111.0
+            lon_range = radius / (111.0 * math.cos(math.radians(center_lat)))
+
+            # Get properties in range
+            properties = Properties.objects.filter(
+                latitude__range=(center_lat - lat_range, center_lat + lat_range),
+                longitude__range=(center_lng - lon_range, center_lng + lon_range),
+                is_deleted=False
+            )
+
+            # Calculate exact distances
+            def calculate_distance(prop_lat, prop_lng):
+                R = 6371
+                lat1, lon1 = math.radians(center_lat), math.radians(center_lng)
+                lat2, lon2 = math.radians(prop_lat), math.radians(prop_lng)
+                
+                dlat = lat2 - lat1
+                dlon = lon2 - lon1
+                
+                a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                return R * c
+
+            # Format properties with distance
+            properties_with_distance = []
+            for prop in properties:
+                distance = calculate_distance(prop.latitude, prop.longitude)
+                if distance <= radius:
+                    amenities = prop.get_amenities().values().first() or {}
+                    properties_with_distance.append({
+                        'id': prop.id,
+                        'title': prop.title,
+                        'address': {
+                            'street_address': prop.street_address,
+                            'city': prop.city,
+                            'state': prop.state,
+                            'zip_code': prop.zip_code,
+                        },
+                        'details': {
+                            'bedrooms': prop.bedrooms,
+                            'bathrooms': prop.bathrooms,
+                            'rent': prop.rent,
+                            'property_type': prop.property_type,
+                            'available_since': prop.available_since,
+                        },
+                        'amenities': amenities,
+                        'distance': round(distance, 2),
+                    })
+
+            # Sort by distance
+            properties_with_distance.sort(key=lambda x: x['distance'])
+
+            # Paginate
+            paginator = Paginator(properties_with_distance, per_page)
+            page_obj = paginator.get_page(page)
+
+            return Response({
+                'success': True,
+                'error': False,
+                'data': {
+                    'properties': list(page_obj),
+                    'total_count': paginator.count,
+                    'total_pages': paginator.num_pages,
+                    'current_page': page,
+                    'search_location': formatted_address,
+                    'radius': radius
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': True,
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class PropertyFilterView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Filter properties based on criteria
+        params:
+        - min_rent: float
+        - max_rent: float
+        - bedrooms: float
+        - bathrooms: float
+        - property_type: string
+        - page: int
+        - per_page: int
+        """
+        try:
+            # Get filter parameters
+            min_rent = request.GET.get('min_rent')
+            max_rent = request.GET.get('max_rent')
+            bedrooms = request.GET.get('bedrooms')
+            bathrooms = request.GET.get('bathrooms')
+            property_type = request.GET.get('property_type')
+            page = int(request.GET.get('page', 1))
+            per_page = int(request.GET.get('per_page', 10))
+
+            # Base query
+            properties = Properties.objects.filter(is_deleted=False)
+
+            # Apply filters
+            if min_rent:
+                properties = properties.filter(rent__gte=float(min_rent))
+            if max_rent:
+                properties = properties.filter(rent__lte=float(max_rent))
+            if bedrooms:
+                properties = properties.filter(bedrooms=float(bedrooms))
+            if bathrooms:
+                properties = properties.filter(bathrooms=float(bathrooms))
+            if property_type:
+                properties = properties.filter(property_type__iexact=property_type)
+
+            # Format properties
+            property_list = []
+            for prop in properties:
+                amenities = prop.get_amenities().values().first() or {}
+                property_list.append({
+                    'id': prop.id,
+                    'title': prop.title,
+                    'address': {
+                        'street_address': prop.street_address,
+                        'city': prop.city,
+                        'state': prop.state,
+                        'zip_code': prop.zip_code,
+                    },
+                    'details': {
+                        'bedrooms': prop.bedrooms,
+                        'bathrooms': prop.bathrooms,
+                        'rent': prop.rent,
+                        'property_type': prop.property_type,
+                        'available_since': prop.available_since,
+                    },
+                    'amenities': amenities
+                })
+
+            # Paginate
+            paginator = Paginator(property_list, per_page)
+            page_obj = paginator.get_page(page)
+
+            return Response({
+                'success': True,
+                'error': False,
+                'data': {
+                    'properties': list(page_obj),
+                    'total_count': paginator.count,
+                    'total_pages': paginator.num_pages,
+                    'current_page': page,
+                    'filters_applied': {
+                        'min_rent': min_rent,
+                        'max_rent': max_rent,
+                        'bedrooms': bedrooms,
+                        'bathrooms': bathrooms,
+                        'property_type': property_type
+                    }
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': True,
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

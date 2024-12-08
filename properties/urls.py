@@ -10,8 +10,7 @@ from .views import (
     ModifyPropertyView,
     GetPropertyDetailsView,
     AddressValidationView,
-    LocationSearchView,
-    PropertyFilterView
+    PropertySearchView
 
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -31,6 +30,5 @@ urlpatterns = [
         GetPropertyDetailsView.as_view(),
         name="get-property-details",
     ),
-    path('search/location/', LocationSearchView.as_view(), name='location-search'),
-    path('search/filter/', PropertyFilterView.as_view(), name='property-filter'),
+    path('search/', PropertySearchView.as_view(), name='property-search'),
 ]

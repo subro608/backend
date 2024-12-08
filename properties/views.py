@@ -1055,24 +1055,40 @@ class AddressValidationView(APIView):
         
 
 import math
-class LocationSearchView(APIView):
+
+
+class PropertySearchView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """
-        Search properties by location with radius
-        params:
-        - location: string (required) - address, borough, or neighborhood
+        Search properties with three scenarios:
+        1. Basic: location and radius only
+        2. With filters: location, radius, and filters (default date sorting)
+        3. Complete: location, radius, filters, and specific sorting
+        
+        Required params:
+        - location: string (address, borough, or neighborhood)
         - radius: int (in kilometers, default: 5)
+        
+        Optional params:
+        - min_rent: float
+        - max_rent: float
+        - bedrooms: float
+        - bathrooms: float
+        - property_type: string
+        - sort_by: string (rent_asc, rent_desc, date_asc, date_desc, beds_asc, beds_desc, baths_asc, baths_desc)
         - page: int
         - per_page: int
         """
         try:
+            # Get required location parameters
             location = request.GET.get('location')
             radius = int(request.GET.get('radius', 5))
             page = int(request.GET.get('page', 1))
             per_page = int(request.GET.get('per_page', 10))
 
+            # Validate location parameter
             if not location:
                 return Response({
                     'success': False,
@@ -1100,32 +1116,73 @@ class LocationSearchView(APIView):
             lat_range = radius / 111.0
             lon_range = radius / (111.0 * math.cos(math.radians(center_lat)))
 
-            # Get properties in range
+            # Get properties within radius
             properties = Properties.objects.filter(
                 latitude__range=(center_lat - lat_range, center_lat + lat_range),
                 longitude__range=(center_lng - lon_range, center_lng + lon_range),
                 is_deleted=False
             )
 
-            # Calculate exact distances
-            def calculate_distance(prop_lat, prop_lng):
-                R = 6371
-                lat1, lon1 = math.radians(center_lat), math.radians(center_lng)
-                lat2, lon2 = math.radians(prop_lat), math.radians(prop_lng)
-                
-                dlat = lat2 - lat1
-                dlon = lon2 - lon1
-                
-                a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-                return R * c
+            # Check for filter parameters
+            min_rent = request.GET.get('min_rent')
+            max_rent = request.GET.get('max_rent')
+            bedrooms = request.GET.get('bedrooms')
+            bathrooms = request.GET.get('bathrooms')
+            property_type = request.GET.get('property_type')
 
-            # Format properties with distance
+            # Apply filters if any are present
+            if min_rent:
+                properties = properties.filter(rent__gte=float(min_rent))
+            if max_rent:
+                properties = properties.filter(rent__lte=float(max_rent))
+            if bedrooms:
+                properties = properties.filter(bedrooms=float(bedrooms))
+            if bathrooms:
+                properties = properties.filter(bathrooms=float(bathrooms))
+            if property_type:
+                properties = properties.filter(property_type__iexact=property_type)
+
+            # Define sorting options
+            sort_options = {
+                'rent_asc': 'rent',
+                'rent_desc': '-rent',
+                'date_asc': 'created_at',
+                'date_desc': '-created_at',
+                'beds_asc': 'bedrooms',
+                'beds_desc': '-bedrooms',
+                'baths_asc': 'bathrooms',
+                'baths_desc': '-bathrooms'
+            }
+
+            # Get sort parameter if it exists
+            sort_by = request.GET.get('sort_by')
+            
+            # Apply sorting
+            if sort_by and sort_by in sort_options:
+                properties = properties.order_by(sort_options[sort_by])
+            else:
+                # Default sorting by date if filters are present
+                has_filters = any([min_rent, max_rent, bedrooms, bathrooms, property_type])
+                if has_filters:
+                    properties = properties.order_by('-created_at')
+
+            # Calculate distances and format properties
             properties_with_distance = []
             for prop in properties:
-                distance = calculate_distance(prop.latitude, prop.longitude)
+                # Calculate exact distance
+                dlat = math.radians(float(prop.latitude) - center_lat)
+                dlon = math.radians(float(prop.longitude) - center_lng)
+                a = math.sin(dlat/2)**2 + math.cos(math.radians(center_lat)) * \
+                    math.cos(math.radians(float(prop.latitude))) * math.sin(dlon/2)**2
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                distance = 6371 * c  # Radius of earth in kilometers
+
                 if distance <= radius:
+                    # Get related data
                     amenities = prop.get_amenities().values().first() or {}
+                    images = list(prop.get_images().values())
+                    pois = list(prop.get_pois().values())
+
                     properties_with_distance.append({
                         'id': prop.id,
                         'title': prop.title,
@@ -1141,15 +1198,21 @@ class LocationSearchView(APIView):
                             'rent': prop.rent,
                             'property_type': prop.property_type,
                             'available_since': prop.available_since,
+                            'created_at': prop.created_at,
+                            'guarantor_required': prop.guarantor_required,
+                            'additional_notes': prop.additional_notes
                         },
                         'amenities': amenities,
+                        'images': images,
+                        'pois': pois,
                         'distance': round(distance, 2),
+                        'coordinates': {
+                            'latitude': prop.latitude,
+                            'longitude': prop.longitude
+                        }
                     })
 
-            # Sort by distance
-            properties_with_distance.sort(key=lambda x: x['distance'])
-
-            # Paginate
+            # Paginate results
             paginator = Paginator(properties_with_distance, per_page)
             page_obj = paginator.get_page(page)
 
@@ -1161,100 +1224,19 @@ class LocationSearchView(APIView):
                     'total_count': paginator.count,
                     'total_pages': paginator.num_pages,
                     'current_page': page,
-                    'search_location': formatted_address,
-                    'radius': radius
-                }
-            }, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response({
-                'success': False,
-                'error': True,
-                'message': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class PropertyFilterView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        """
-        Filter properties based on criteria
-        params:
-        - min_rent: float
-        - max_rent: float
-        - bedrooms: float
-        - bathrooms: float
-        - property_type: string
-        - page: int
-        - per_page: int
-        """
-        try:
-            # Get filter parameters
-            min_rent = request.GET.get('min_rent')
-            max_rent = request.GET.get('max_rent')
-            bedrooms = request.GET.get('bedrooms')
-            bathrooms = request.GET.get('bathrooms')
-            property_type = request.GET.get('property_type')
-            page = int(request.GET.get('page', 1))
-            per_page = int(request.GET.get('per_page', 10))
-
-            # Base query
-            properties = Properties.objects.filter(is_deleted=False)
-
-            # Apply filters
-            if min_rent:
-                properties = properties.filter(rent__gte=float(min_rent))
-            if max_rent:
-                properties = properties.filter(rent__lte=float(max_rent))
-            if bedrooms:
-                properties = properties.filter(bedrooms=float(bedrooms))
-            if bathrooms:
-                properties = properties.filter(bathrooms=float(bathrooms))
-            if property_type:
-                properties = properties.filter(property_type__iexact=property_type)
-
-            # Format properties
-            property_list = []
-            for prop in properties:
-                amenities = prop.get_amenities().values().first() or {}
-                property_list.append({
-                    'id': prop.id,
-                    'title': prop.title,
-                    'address': {
-                        'street_address': prop.street_address,
-                        'city': prop.city,
-                        'state': prop.state,
-                        'zip_code': prop.zip_code,
+                    'search_criteria': {
+                        'location': formatted_address,
+                        'radius': radius,
+                        'filters_applied': {
+                            'min_rent': min_rent,
+                            'max_rent': max_rent,
+                            'bedrooms': bedrooms,
+                            'bathrooms': bathrooms,
+                            'property_type': property_type
+                        } if any([min_rent, max_rent, bedrooms, bathrooms, property_type]) else None,
+                        'sort_by': sort_by if sort_by in sort_options else ('date_desc' if any([min_rent, max_rent, bedrooms, bathrooms, property_type]) else None)
                     },
-                    'details': {
-                        'bedrooms': prop.bedrooms,
-                        'bathrooms': prop.bathrooms,
-                        'rent': prop.rent,
-                        'property_type': prop.property_type,
-                        'available_since': prop.available_since,
-                    },
-                    'amenities': amenities
-                })
-
-            # Paginate
-            paginator = Paginator(property_list, per_page)
-            page_obj = paginator.get_page(page)
-
-            return Response({
-                'success': True,
-                'error': False,
-                'data': {
-                    'properties': list(page_obj),
-                    'total_count': paginator.count,
-                    'total_pages': paginator.num_pages,
-                    'current_page': page,
-                    'filters_applied': {
-                        'min_rent': min_rent,
-                        'max_rent': max_rent,
-                        'bedrooms': bedrooms,
-                        'bathrooms': bathrooms,
-                        'property_type': property_type
-                    }
+                    'available_sort_options': list(sort_options.keys())
                 }
             }, status=status.HTTP_200_OK)
 

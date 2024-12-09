@@ -27,6 +27,8 @@ class Properties(models.Model):
     rent = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField()
     modified_at = models.DateTimeField(blank=True, null=True)
+    latitude = models.FloatField(blank=True, null=True)  # New field
+    longitude = models.FloatField(blank=True, null=True)  # New field
 
     class Meta:
         db_table = "properties"
@@ -91,7 +93,6 @@ class PropertyImage(models.Model):
 
     class Meta:
         db_table = "property_images"  # Set table name
-
 
 class PropertyWishlist(models.Model):
     id = models.AutoField(primary_key=True)

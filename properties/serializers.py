@@ -12,8 +12,8 @@ class LocationAnalysisSerializer(serializers.Serializer):
         """
         Check that the radius is within reasonable bounds
         """
-        if value > 200:
-            raise serializers.ValidationError("Radius cannot exceed 5000 meters")
+        if value > 1000:
+            raise serializers.ValidationError("Radius cannot exceed 1000 meters")
         return value
 
 
@@ -44,6 +44,8 @@ class CreatePropertyListingSerializer(serializers.Serializer):
     swimming_pool = serializers.BooleanField(default=False)
     microwave = serializers.BooleanField(default=False)
     description = serializers.CharField()
+    latitude = serializers.FloatField(read_only=True)  # Read-only as it's generated
+    longitude = serializers.FloatField(read_only=True)  # Read-only as it's generated
 
 
 class ModifyPropertyListingSerializer(serializers.Serializer):
@@ -53,6 +55,16 @@ class ModifyPropertyListingSerializer(serializers.Serializer):
 class DeletePropertySerializer(serializers.Serializer):
     property_id = serializers.CharField(max_length=255)
 
+class RemoveWishlistSerializer(serializers.Serializer):
+    lessee_id = serializers.CharField(required=True)
+    property_id = serializers.UUIDField(required=True)
+
+    class Meta:
+        fields = ['lessee_id', 'property_id']
+
+class WishlistSerializer(serializers.Serializer):
+    lessee_id = serializers.UUIDField(required=True)
+    property_id = serializers.UUIDField(required=True)
 
 class PropertyAmenitiesSerializer(serializers.ModelSerializer):
     class Meta:

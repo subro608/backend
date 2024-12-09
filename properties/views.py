@@ -107,32 +107,124 @@ class PropertyImageUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        serializer = PropertyImageSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        property_id = serializer.validated_data["property_id"]
-        image = request.FILES["image"]  # In-memory file object
-
+        """
+        Upload up to 3 images for a property.
+        Request should include:
+        - property_id: string
+        - images or image: list of image files or single image file
+        """
         try:
-            # Upload the image to Supabase
+            # Validate property_id
+            serializer = PropertyImageSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            property_id = serializer.validated_data["property_id"]
+            
+            # Check if property exists
+            if not Properties.objects.filter(id=property_id).exists():
+                return Response({
+                    "success": False,
+                    "error": True,
+                    "message": "Property not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            # Get existing image count
+            existing_images = PropertyImage.objects.filter(property_id=property_id).count()
+            
+            # Try both 'images' and 'image' keys
+            images = request.FILES.getlist('images') or request.FILES.getlist('image')
+            
+            # Also check for single image upload
+            if not images and request.FILES.get('image'):
+                images = [request.FILES.get('image')]
+            
+            if not images:
+                return Response({
+                    "success": False,
+                    "error": True,
+                    "message": "No images provided. Please provide images using 'images' or 'image' field."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if total images would exceed limit
+            if existing_images + len(images) > 3:
+                return Response({
+                    "success": False,
+                    "error": True,
+                    "message": f"Cannot upload {len(images)} images. Maximum total images allowed is 3. Currently has {existing_images} images."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Initialize Supabase uploader
             uploader = SupabaseUploader()
-            file_name = f"{property_id}/{image.name}"
-            public_url = uploader.upload_image(image, file_name)
+            uploaded_urls = []
 
-            # Save image metadata in the database
-            PropertyImage.objects.create(
-                property_id=property_id,
-                file_name=image.name,
-                url=public_url,
-            )
+            # Upload each image
+            for image in images:
+                try:
+                    file_name = f"{property_id}/{image.name}"
+                    public_url = uploader.upload_image(image, file_name)
+
+                    # Save image metadata in database
+                    PropertyImage.objects.create(
+                        property_id=property_id,
+                        file_name=image.name,
+                        url=public_url,
+                    )
+                    uploaded_urls.append(public_url)
+
+                except Exception as e:
+                    return Response({
+                        "success": False,
+                        "error": True,
+                        "message": f"Failed to upload image {image.name}: {str(e)}"
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # Return success response with all uploaded URLs
+            return Response({
+                "success": True,
+                "error": False,
+                "data": {
+                    "property_id": property_id,
+                    "uploaded_images": uploaded_urls,
+                    "total_images": existing_images + len(images)
+                },
+                "message": f"Successfully uploaded {len(images)} images"
+            }, status=status.HTTP_201_CREATED)
+
         except Exception as e:
-            return Response(
-                {"error": f"Failed to upload image: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return Response({
+                "success": False,
+                "error": True,
+                "message": f"An error occurred: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return Response({"url": public_url}, status=status.HTTP_201_CREATED)
+    def delete(self, request, image_id):
+        """
+        Delete a specific image from a property
+        """
+        try:
+            image = PropertyImage.objects.get(id=image_id)
+            image.delete()
+            
+            return Response({
+                "success": True,
+                "error": False,
+                "message": "Image deleted successfully"
+            }, status=status.HTTP_200_OK)
+
+        except PropertyImage.DoesNotExist:
+            return Response({
+                "success": False,
+                "error": True,
+                "message": "Image not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": True,
+                "message": f"An error occurred: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def get_location_coordinates(location):

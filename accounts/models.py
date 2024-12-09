@@ -103,8 +103,6 @@ class Lessee(models.Model):
         primary_key=True,
         to_field="id",  # Explicitly reference the UUID field
     )
-    name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)  # Independent email field, not a foreign key
     document = models.OneToOneField(
         IDCardDocument, on_delete=models.CASCADE, to_field="id", null=True
     )
@@ -129,6 +127,8 @@ class Lessor(models.Model):
 
     is_landlord = models.BooleanField(default=True)
     document_id = models.CharField(max_length=50, unique=True)
+    # license_type = models.CharField()
+    # license_id = models.CharField()
     is_verified = models.BooleanField(default=False)
     verification_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)

@@ -117,19 +117,43 @@ class PropertyImageUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        serializer = PropertyImageSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        property_id = serializer.validated_data["property_id"]
-        new_files = request.FILES.getlist("new_images")
-        deleted_file_ids = request.data["deleted_images"]
-        deleted_file_ids = json.loads(deleted_file_ids) if deleted_file_ids else []
+        """
+        Upload up to 3 images for a property.
+        Request should include:
+        - property_id: string
+        - images or image: list of image files or single image file
+        """
         try:
+            # Validate property_id
+            serializer = PropertyImageSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            property_id = serializer.validated_data["property_id"]
+            new_files = request.FILES.getlist("new_images")
+            deleted_file_ids = request.data["deleted_images"]
+            deleted_file_ids = json.loads(deleted_file_ids) if deleted_file_ids else []
+
+            # Check if property exists
+            if not Properties.objects.filter(id=property_id).exists():
+                return Response({
+                    "success": False,
+                    "error": True,
+                    "message": "Property not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+            # Get existing image count
+            existing_images = PropertyImage.objects.filter(property_id=property_id).count()
+             # Check if total images would exceed limit
+            if existing_images + len(new_files) - len(deleted_file_ids)> 3:
+                return Response({
+                    "success": False,
+                    "error": True,
+                    "message": f"Cannot upload {len(new_files) - len(deleted_file_ids)} images. Maximum total images allowed is 3. Currently has {existing_images} images."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
             uploader = SupabaseUploader()
 
             for file_id in deleted_file_ids:
-                print(file_id)
                 try:
                     property_image = PropertyImage.objects.get(id=file_id)
                     file_path = (
@@ -138,10 +162,11 @@ class PropertyImageUploadView(APIView):
                     uploader.delete_file(file_path)
                     property_image.delete()
                 except PropertyImage.DoesNotExist:
-                    return Response(
-                        {"error": "Image does not exists"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                    return Response({
+                        "success": False,
+                        "error": True,
+                        "message": f"Image does not exists {file_id}"
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
             for file in new_files:
                 # Upload the image to Supabase
@@ -155,12 +180,21 @@ class PropertyImageUploadView(APIView):
                     url=public_url,
                 )
         except Exception as e:
-            return Response(
-                {"error": f"Failed to upload image: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return Response({
+                        "success": False,
+                        "error": True,
+                        "message": f"Failed to upload image {str(e)}"
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return Response({"success": True}, status=status.HTTP_201_CREATED)
+        return Response({
+                "success": True,
+                "error": False,
+                "data": {
+                    "property_id": property_id,
+                    "total_images": existing_images + len(new_files) - len(deleted_file_ids)
+                },
+                "message": f"Successfully uploaded {len(new_files)} images. Deleted {len(deleted_file_ids)} images"
+            }, status=status.HTTP_201_CREATED)
 
 
 def get_location_coordinates(location):

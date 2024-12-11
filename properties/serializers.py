@@ -12,14 +12,13 @@ class LocationAnalysisSerializer(serializers.Serializer):
         """
         Check that the radius is within reasonable bounds
         """
-        if value > 200:
-            raise serializers.ValidationError("Radius cannot exceed 5000 meters")
+        if value > 1000:
+            raise serializers.ValidationError("Radius cannot exceed 1000 meters")
         return value
 
 
 class PropertyImageSerializer(serializers.Serializer):
     property_id = serializers.CharField(max_length=255)
-    image = serializers.ImageField()  # Validate the image file
 
 
 class CreatePropertyListingSerializer(serializers.Serializer):
@@ -44,6 +43,9 @@ class CreatePropertyListingSerializer(serializers.Serializer):
     laundry = serializers.BooleanField(default=False)
     swimming_pool = serializers.BooleanField(default=False)
     microwave = serializers.BooleanField(default=False)
+    description = serializers.CharField()
+    latitude = serializers.FloatField(read_only=True)  # Read-only as it's generated
+    longitude = serializers.FloatField(read_only=True)  # Read-only as it's generated
 
 
 class ModifyPropertyListingSerializer(serializers.Serializer):
@@ -63,10 +65,21 @@ class RemoveWishlistSerializer(serializers.Serializer):
 class WishlistSerializer(serializers.Serializer):
     lessee_id = serializers.UUIDField(required=True)
     property_id = serializers.UUIDField(required=True)
-# class PropertyAmenitiesSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = PropertyAmenities
-#         fields = ["amenity"]
+
+class PropertyAmenitiesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyAmenities
+        fields = [
+            "property_id",
+            "air_conditioning",
+            "dishwasher",
+            "heating",
+            "gym",
+            "refrigerator",
+            "laundry",
+            "swimming_pool",
+            "microwave",
+        ]
 
 
 # class PropertyPoisSerializer(serializers.ModelSerializer):

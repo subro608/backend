@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Lessee, Lessor
+from .models import User, Lessee, Lessor, IDCardDocument
 
 
 class LessorSerializer(serializers.ModelSerializer):
@@ -17,13 +17,26 @@ class LessorSerializer(serializers.ModelSerializer):
         return value.strip().upper()
 
 
+class IDCardDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IDCardDocument
+        fields = ["file_name", "public_url", "uploaded_at"]
+
+
 class LesseeSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
+    document = IDCardDocumentSerializer(read_only=True)
 
     class Meta:
         db_table = "accounts_lessee"  # This sets the actual table name
         model = Lessee
-        fields = ["name", "guarantor_status", "email"]
+        fields = [
+            "name",
+            "email",
+            "document",
+            "is_email_verified",
+            "is_document_verified",
+        ]
 
 
 class RegisterSerializer(serializers.ModelSerializer):

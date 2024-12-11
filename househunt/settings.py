@@ -54,12 +54,14 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = "accounts.User"
 
 # Email settings (for Gmail SMTP)
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = os.getenv("EMAIL_PORT")
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "househunt.view@gmail.com"  # Replace with your actual email
-EMAIL_HOST_PASSWORD = "lxkw rjqb wlth wrmg"  # Replace with your actual email password
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")  # Replace with your actual email
+EMAIL_HOST_PASSWORD = os.getenv(
+    "EMAIL_HOST_PASSWORD"
+)  # Replace with your actual email password
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -199,3 +201,4 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY3")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+FRONTEND_URL = os.getenv("FRONTEND_URL")

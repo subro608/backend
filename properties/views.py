@@ -635,6 +635,7 @@ class GetAllPropertiesView(APIView):
                     "additional_notes": property.additional_notes,
                     "images": images,
                     "pois": pois,
+                    "status_verification": property.status_verification,
                 }
             )
 
@@ -654,6 +655,143 @@ class GetAllPropertiesView(APIView):
             },
             status=200,
         )
+
+class GetAllPropertiesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        page = request.GET.get("page", 1)  # Default to page 1 if not provided
+        per_page = request.GET.get("per_page", 10)  # Default to 10 items per page
+
+        # Query properties data ordered by `created_at`
+        properties_query = Properties.objects.filter(is_deleted=False).order_by("-created_at")
+        paginator = Paginator(properties_query, per_page)
+
+        try:
+            properties_page = paginator.page(page)
+        except:
+            return Response(
+                {
+                    "data": None,
+                    "success": False,
+                    "error": True,
+                    "message": "Invalid page number",
+                },
+                status=400,
+            )
+
+        # Build response with related data
+        properties_data = []
+        for property in properties_page:
+            # Fetch related amenities, images, and POIs using helper methods
+            amenities = property.get_amenities()
+            images = list(property.get_images().values())
+            pois = list(property.get_pois().values())
+
+            # Add the property data with related data
+            properties_data.append(
+                {
+                    "id": property.id,
+                    "title": property.title,
+                    "rent": property.rent,
+                    "address": {
+                        "street_address": property.street_address,
+                        "city": property.city,
+                        "state": property.state,
+                        "zip_code": property.zip_code,
+                    },
+                    "details": {
+                        "bedrooms": property.bedrooms,
+                        "bathrooms": property.bathrooms,
+                        "property_type": property.property_type,
+                        "guarantor_required": property.guarantor_required,
+                        "description": property.description,
+                    },
+                    "created_at": property.created_at,
+                    "amenities": PropertyAmenitiesSerializer(amenities).data,
+                    "available_since": property.available_since,
+                    "additional_notes": property.additional_notes,
+                    "images": images,
+                    "pois": pois,
+                    "status_verification": property.status_verification,
+                }
+            )
+
+        # Return paginated response
+        response = {
+            "total_count": paginator.count,
+            "total_pages": paginator.num_pages,
+            "current_page": properties_page.number,
+            "properties": properties_data,
+        }
+
+        return Response(
+            {
+                "error": False,
+                "data": response,
+                "success": True,
+                "message": "Properties returned successfully.",
+            },
+            status=200,
+        )
+
+class SubmitPropertyForVerificationView(APIView):
+    permission_classes = [IsAuthenticated]
+    STATUS_VERIFICATION_PROPERTY_NOT_SUBMITTED = 0
+    STATUS_VERIFICATION_PROPERTY_SUBMITTED = 1
+    STATUS_VERIFICATION_PROPERTY_DENIED = 2
+    STATUS_VERIFICATION_PROPERTY_VERIFIED = 3
+
+    def post(self, request):
+        try:
+            user = request.user
+            # Validate lessor
+            lessor = Lessor.objects.filter(user=user).first()
+            if not lessor:
+                return Response(
+                    {"error": "Only valid lessors can submit properties for verification."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            property_id = request.data.get("property_id")
+            if not property_id:
+                return Response(
+                    {"error": "Property ID is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Fetch the property
+            property_obj = Properties.objects.filter(
+                id=property_id, lessor_id=lessor.user_id, is_deleted=False
+            ).first()
+            
+            if not property_obj:
+                return Response(
+                    {"error": "Property not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Update the status if not already submitted
+            if property_obj.status_verification == self.STATUS_VERIFICATION_PROPERTY_SUBMITTED:
+                return Response(
+                    {"error": "Property is already submitted for verification."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            property_obj.status_verification = self.STATUS_VERIFICATION_PROPERTY_SUBMITTED
+            property_obj.save()
+
+            return Response(
+                {"success": True, "message": "Property submitted for verification."},
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            print(f"Error in SubmitPropertyForVerificationView: {str(e)}")  # Add logging
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 # API View to delete a property
 

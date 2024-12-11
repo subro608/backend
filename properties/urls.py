@@ -7,6 +7,8 @@ from .views import (
     DeletePropertyView,
     GetPropertyDetailsView,
     ModifyPropertyView,
+    GetAllPropertiesView,
+    SubmitPropertyForVerificationView
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -17,9 +19,12 @@ urlpatterns = [
     path("upload-image/", PropertyImageUploadView.as_view(), name="upload-image"),
     path("", GetPropertiesView.as_view(), name="get-properties"),
     path("delete", DeletePropertyView.as_view(), name="delete-property"),
+    path("get-all-properties", GetAllPropertiesView.as_view(), name="get-all-properties"),
     path(
         "<str:property_id>",
         GetPropertyDetailsView.as_view(),
         name="get-property-details",
     ),
+    path("submit-verification/", SubmitPropertyForVerificationView.as_view(), name="submit_property_for_verification")
 ]
+

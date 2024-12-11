@@ -39,6 +39,8 @@ class Role(models.IntegerChoices):
     ADMIN = 1
     LESSEE = 2
     LESSOR = 3
+    VERIFICATION_SUPPORT = 4
+    CUSTOMER_SUPPORT = 5
 
 
 class User(AbstractBaseUser):

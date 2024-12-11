@@ -26,7 +26,8 @@ class Properties(models.Model):
     is_deleted = models.BooleanField(default=False, null=True)
     rent = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField()
-    modified_at = models.DateTimeField(blank=True, null=True)
+    modified_at = models.DateTimeField(blank=True, null=True) 
+    status_verification = models.SmallIntegerField(default=0, null=True)
 
     class Meta:
         db_table = "properties"

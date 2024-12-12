@@ -4,8 +4,8 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from properties.views import SupabaseUploader
-from .models import User, Lessee, Lessor, IDCardDocument, Role
-from .serializers import RegisterSerializer, LesseeSerializer
+from .models import User, Lessee, Lessor, IDCardDocument, Role, BrokerLicenseType
+from .serializers import RegisterSerializer, LesseeSerializer, LessorSerializer
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail  # To send email
@@ -27,72 +27,16 @@ signer = TimestampSigner()
 class LesseeSetupView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
-    def post(self, request):
-        # if request.user.role != 'LESSEE':
-        #     return Response({"error": "User must be a LESSEE to set up a lessee profile."}, status=status.HTTP_403_FORBIDDEN)
-
-        user_email = request.data.get("email")
-        name = request.data.get("name")
-        guarantor_status = request.data.get("guarantor_status")
-
-        # Validate email has .edu extension
-        if not user_email.endswith(".edu"):
-            return Response(
-                {"error": "Only .edu email addresses are allowed."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Check if a user with this email exists
-        user = User.objects.filter(email=user_email, role="LESSEE").first()
-        if not user:
-            return Response(
-                {"error": "Either invalid email or incorrecct role"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Check if a lessee account already exists for this user
-        if Lessee.objects.filter(user=user).exists():
-            return Response(
-                {"error": "Account already exists."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Create a new Lessee entry associated with this user
-        lessee_data = {
-            "name": name,
-            "guarantor_status": guarantor_status,
-            "email": user_email,  # Save email in Lessee
-        }
-        serializer = LesseeSerializer(data=lessee_data)
-
-        if serializer.is_valid():
-            lessee = serializer.save(user=user)  # Save lessee info connected to user
-
-            # Send notification email
-            email_subject = "Lessee Setup Successful"
-            email_body = (
-                f"Dear {name}, your lessee information has been successfully recorded."
-            )
-            send_mail(
-                email_subject,
-                email_body,
-                "househunt.view@gmail.com",  # From email
-                [user_email],  # To email
-                fail_silently=False,
-            )
-
-            return Response(
-                {"message": "Lessee information saved successfully."},
-                status=status.HTTP_201_CREATED,
-            )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
     def get(self, request, pk=None):
         try:
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
             return Response(
-                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                {
+                    "success": False, 
+                    "error": True, 
+                    "message": "User not found"
+                }, status=status.HTTP_404_NOT_FOUND
             )
 
         try:
@@ -100,11 +44,18 @@ class LesseeSetupView(APIView):
             serializer = LesseeSerializer(lessee_info)
         except Lessee.DoesNotExist:
             return Response(
-                {"error": {"message": "Profile not setup yet", "status": 1907}},
-                status=status.HTTP_200_OK,
+                {
+                    "success": False, 
+                    "error": True, 
+                    "message": "Profile not setup yet"
+                },
+                status=status.HTTP_404_NOT_FOUND
             )
 
-        return JsonResponse({"data": serializer.data}, status=status.HTTP_200_OK)
+        return JsonResponse({
+            "success": True, 
+            "error": False,
+            "data": serializer.data}, status=status.HTTP_200_OK)
 
     def put(self, request, pk=None):
 
@@ -112,164 +63,169 @@ class LesseeSetupView(APIView):
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
             return Response(
-                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                {"success":False,
+                 "error": True,
+                 "message":"User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if lessor profile already exists for this user
+        if Lessee.objects.filter(user=user).exists():
+            return Response(
+                {"success":False,
+                 "error": True,
+                 "message":"Lessee profile already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         serializer = LesseeSerializer(data=request.data)
 
         if serializer.is_valid():
-            if user.email == request.data["email"]:
-                try:
-                    with transaction.atomic():
-                        document_file = request.FILES["document"]
-                        file_name = document_file.name
-                        uploader = SupabaseUploader()
-                        public_url = uploader.upload_file(document_file,f"{user.id}/{document_file.name}","roomscout_documents")
-                        id_card = IDCardDocument.objects.create(
-                            file_name=file_name,
-                            public_url=public_url,
-                        )
+            try:
+                with transaction.atomic():
+                    document_file = request.FILES["document"]
+                    file_name = document_file.name
+                    uploader = SupabaseUploader()
+                    public_url = uploader.upload_file(document_file,f"{user.id}/{document_file.name}","roomscout_documents")
+                    id_card = IDCardDocument.objects.create(
+                        file_name=file_name,
+                        public_url=public_url,
+                    )
+                    
+                    user.name = request.data["name"]
+                    user.save()
+                    Lessee.objects.create(
+                        user_id=user.id,
+                        document_id=id_card.id,
+                        is_verified=False,
+                    )
 
-                        Lessee.objects.create(
-                            user_id=user.id,
-                            name=request.data["name"],
-                            email=request.data["email"],
-                            document_id=id_card.id,
-                            is_email_verified=True,
-                        )
-
-                    return Response(
-                        {
-                            "message": f"Created Lesse profile with existing email {id_card.id}"
-                        }
-                    )
-                except Exception as e:
-                    print(str(e))
-                    return Response(
-                        {"error": "Failed to save information"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-            else:
-                try:
-                    with transaction.atomic():
-                        document_file = request.FILES["document"]
-                        file_name = document_file.name
-                        uploader = SupabaseUploader()
-                        public_url = uploader.upload_file(
-                            document_file, f"{user.id}/{document_file.name}"
-                        )
-                        id_card = IDCardDocument.objects.create(
-                            file_name=file_name,
-                            public_url=public_url,
-                        )
-
-                        Lessee.objects.create(
-                            user_id=user.id,
-                            name=request.data["name"],
-                            email=request.data["email"],
-                            document_id=id_card.id,
-                        )
-                        email = request.data["email"]
-                        token = signer.sign(email)
-                        verification_url = f"{settings.FRONTEND_URL}/verify-email/?token={token}&role={Role.LESSEE}"
-                        email_subject = "Please verify your email"
-                        email_body = f"Please verify your email by clicking the link: {verification_url}"
-                        print(f"Verification url : {verification_url}")
-                        send_mail(
-                            email_subject,
-                            email_body,
-                            f"{settings.EMAIL_HOST_USER}",  # From email
-                            [email],  # To email
-                            fail_silently=False,
-                        )
-                    return Response(
-                        {"message": "Lessee information saved successfully."},
-                        status=status.HTTP_201_CREATED,
-                    )
-                except Exception as e:
-                    print(str(e))
-                    return Response(
-                        {"error": "Failed to save information"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
+                return Response(
+                    {
+                        "success": True,
+                        "error": False,
+                        "message": "Lessee profile created successfully.",
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+            except Exception as e:
+                return Response(
+                    {
+                        "success":False,
+                        "error": True,
+                        "message": f"Failed to save information {str(e)}"
+                    },status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LessorSetupView(APIView):
-    def post(self, request):
+    def put(self, request, pk=None):
         # Extract data from request
-        user_email = request.data.get("email")
         name = request.data.get("name")
         is_landlord = request.data.get("is_landlord", True)  # Default to landlord
         document_id = request.data.get("document_id")
-
-        # Validate email has .edu extension if required (assuming similar to Lessee)
-        if not user_email:
-            return Response(
-                {"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST
-            )
+        license_type_id = request.data.get("license_type_id")
+        license_number = request.data.get("license_number")
+        license_type = None
 
         # Check if a user with this email exists and has role 'LESSOR'
-        user = User.objects.filter(email=user_email, role="LESSOR").first()
-        if not user:
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
             return Response(
-                {"error": "Invalid email or incorrect role"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"success":False,
+                 "error": True,
+                 "message":"User not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         # Check if lessor profile already exists for this user
         if Lessor.objects.filter(user=user).exists():
             return Response(
-                {"error": "Lessor profile already exists."},
+                {"success":False,
+                 "error": True,
+                 "message":"Lessor profile already exists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # Verify document ID with ACRIS
-        verification_result = self.verify_with_acris(document_id, is_landlord)
-        if not verification_result["success"]:
-            return Response(
-                {"error": verification_result["message"]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Prepare data for Lessor creation
-        lessor_data = {
-            "name": name,
-            "email": user_email,
-            "is_landlord": is_landlord,
-            "document_id": document_id,
-        }
+        
+        if not is_landlord:
+            try:
+                license_type = BrokerLicenseType.objects.get(id=license_type_id)
+            except BrokerLicenseType.DoesNotExist:
+                return Response(
+                    {"success":False,
+                    "error": True,
+                    "message":"Invalid License Type"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Create a new Lessor entry associated with this user
         try:
-            lessor = Lessor.objects.create(
-                user=user,
-                name=name,
-                email=user_email,
-                is_landlord=is_landlord,
-                document_id=document_id,
-                is_verified=True,
-                verification_date=timezone.now(),
-            )
+            with transaction.atomic():
 
-            # Send confirmation email
-            self.send_verification_email(lessor)
+                #update user name
+                user.name = name
+                user.save()
 
-            return Response(
-                {
-                    "message": "Lessor profile created successfully.",
-                    "is_verified": True,
-                    "verification_date": lessor.verification_date,
-                },
-                status=status.HTTP_201_CREATED,
-            )
+                #save lessor profile info
+                lessor = Lessor.objects.create(
+                    user=user,
+                    is_landlord=is_landlord,
+                    document_id=document_id,
+                    license_type=license_type,
+                    license_number=license_number,
+                    is_verified=False,
+                    verification_date=timezone.now(),
+                )
+
+                return Response(
+                    {
+                        "success": True,
+                        "error": False,
+                        "message": "Lessor profile created successfully.",
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
 
         except Exception as e:
             return Response(
-                {"error": "Failed to create lessor profile.", "details": str(e)},
+                {
+                    "success": False,
+                    "error": True,
+                    "message": f"Failed to create lessor profile. {str(e)}"
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    def get(self, request, pk=None):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "success": False, 
+                    "error": True, 
+                    "message": "User not found"
+                }, status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            lessor_info = Lessor.objects.get(pk=pk)
+            serializer = LessorSerializer(lessor_info)
+        except Lessor.DoesNotExist:
+            return Response(
+                {
+                    "success": False, 
+                    "error": True, 
+                    "message": "Profile not setup yet"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return JsonResponse({
+            "success": True, 
+            "error": False,
+            "data": serializer.data}, status=status.HTTP_200_OK)
+    
     def verify_with_acris(self, document_id, is_landlord):
         """
         Mock ACRIS verification - Replace with actual ACRIS API integration
@@ -553,7 +509,12 @@ class LoginView(APIView):
             {
                 "refreshToken": str(refresh),
                 "token": access_token,
-                "user": {"userId": user.id, "email": user.email, "role": user.role},
+                "user": {
+                    "userId": user.id, 
+                    "email": user.email,
+                    "name": user.name, 
+                    "role": user.role, 
+                    "isVerified":user.is_verified},
             },
             status=status.HTTP_200_OK,
         )

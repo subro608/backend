@@ -76,7 +76,7 @@ class SupabaseUploader:
 
             # File is now closed, we can safely upload it
             with open(temp_file_path, "rb") as upload_file:
-                response = self.client.storage.from_(self.bucket_name).upload(
+                response = self.client.storage.from_(bucket_name).upload(
                     file_name, upload_file
                 )
 
@@ -89,7 +89,7 @@ class SupabaseUploader:
                 raise Exception(response["error"]["message"])
 
             # Generate the public URL
-            public_url = self.client.storage.from_(self.bucket_name).get_public_url(
+            public_url = self.client.storage.from_(bucket_name).get_public_url(
                 file_name
             )
             return public_url
@@ -386,7 +386,6 @@ class CreatePropertyListingView(APIView):
 
         # Extract validated data
         validated_data = serializer.validated_data
-        print(validated_data)
 
         try:
             # Generate full address for geocoding
@@ -884,12 +883,12 @@ class ModifyPropertyView(APIView):
 
             # Update amenities
             amenities_updated = False
+            amenities_requestobj = request.data["amenities"]
             for field in amenity_fields:
-                if field in request.data:
-                    value = request.data.get(field)
-                    if value is not None:
-                        setattr(amenities_obj, field, value)
-                        amenities_updated = True
+                value = amenities_requestobj.get(field)
+                if value is not None:
+                    setattr(amenities_obj, field, value)
+                    amenities_updated = True
 
             if amenities_updated:
                 amenities_obj.modified_at = timezone.now()
@@ -1064,7 +1063,7 @@ class AddressValidationView(APIView):
                     if 'street_number' in component['types'] or 'route' in component['types']:
                         validated_components['street_address'] = True
                     
-                    if 'locality' in component['types'] and city.lower() in component['long_name'].lower():
+                    if ('locality' in component['types'] or 'sublocality' in component['types'] or 'neighborhood' in component['types']) and city.lower() in component['long_name'].lower():
                         validated_components['city'] = True
                     
                     if 'administrative_area_level_1' in component['types'] and state.upper() == component['short_name']:

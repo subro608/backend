@@ -72,13 +72,14 @@ class PropertyAmenitiesSerializer(serializers.ModelSerializer):
         fields = [
             "property_id",
             "air_conditioning",
+            "parking",
             "dishwasher",
             "heating",
             "gym",
             "refrigerator",
             "laundry",
             "swimming_pool",
-            "microwave",
+            "microwave"
         ]
 
 

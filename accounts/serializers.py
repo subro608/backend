@@ -5,16 +5,12 @@ from .models import User, Lessee, Lessor, IDCardDocument
 class LessorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lessor
-        fields = ["name", "email", "is_landlord", "document_id"]
-
-    def validate_document_id(self, value):
-        """
-        Validate document ID format
-        """
-        if not value.strip():
-            raise serializers.ValidationError("Document ID is required")
-        # Add specific format validation based on ACRIS requirements
-        return value.strip().upper()
+        fields = [
+            "is_landlord", 
+            "document_id", 
+            "license_type_id",
+            "license_number",
+            "is_verified"]
 
 
 class IDCardDocumentSerializer(serializers.ModelSerializer):
@@ -24,18 +20,14 @@ class IDCardDocumentSerializer(serializers.ModelSerializer):
 
 
 class LesseeSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField()
     document = IDCardDocumentSerializer(read_only=True)
 
     class Meta:
         db_table = "accounts_lessee"  # This sets the actual table name
         model = Lessee
         fields = [
-            "name",
-            "email",
             "document",
-            "is_email_verified",
-            "is_document_verified",
+            "is_verified",
         ]
 
 

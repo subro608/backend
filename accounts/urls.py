@@ -19,11 +19,10 @@ urlpatterns = [
         name="verify-email-regenerate",
     ),
     path("login/", LoginView.as_view(), name="login"),
-    path("lessee_setup/", LesseeSetupView.as_view(), name="lessee-setup"),
     path(
-        "lessee_setup/<uuid:pk>/", LesseeSetupView.as_view(), name="lessee-setup-detail"
+        "lessee_setup/<uuid:pk>/", LesseeSetupView.as_view(), name="lessee-setup"
     ),
-    path("lessor_setup/", LessorSetupView.as_view(), name="lessor-setup"),
+    path("lessor_setup/<uuid:pk>/", LessorSetupView.as_view(), name="lessor-setup"),
     path("test/", TestView.as_view(), name="test"),
     path(
         "token/", TokenObtainPairView.as_view(), name="token_obtain_pair"

@@ -15,7 +15,7 @@ class Properties(models.Model):
     street_address = models.TextField(blank=True, null=True)
     city = models.TextField(blank=True, null=True)
     state = models.TextField(blank=True, null=True)
-    zip_code = models.SmallIntegerField(blank=True, null=True)
+    zip_code = models.CharField(max_length=5,blank=True, null=True)
     property_type = models.TextField(blank=True, null=True)
     bedrooms = models.FloatField(blank=True, null=True)
     bathrooms = models.FloatField(blank=True, null=True)

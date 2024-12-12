@@ -106,8 +106,7 @@ class Lessee(models.Model):
     document = models.OneToOneField(
         IDCardDocument, on_delete=models.CASCADE, to_field="id", null=True
     )
-    is_email_verified = models.BooleanField(default=False)
-    is_document_verified = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -116,6 +115,11 @@ class Lessee(models.Model):
     def __str__(self):
         return f"{self.name} - {self.email}"
 
+class BrokerLicenseType(models.Model):
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.description
 
 class Lessor(models.Model):
     user = models.OneToOneField(
@@ -126,9 +130,9 @@ class Lessor(models.Model):
     )
 
     is_landlord = models.BooleanField(default=True)
-    document_id = models.CharField(max_length=50, unique=True)
-    # license_type = models.CharField()
-    # license_id = models.CharField()
+    document_id = models.CharField(max_length=50, unique=True, null=True)
+    license_type = models.ForeignKey(BrokerLicenseType, null=True, on_delete=models.CASCADE)
+    license_number = models.CharField(null=True)
     is_verified = models.BooleanField(default=False)
     verification_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)

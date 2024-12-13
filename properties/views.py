@@ -1265,7 +1265,7 @@ import math
 
 
 class PropertySearchView(APIView):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [PropertySearchView]
 
     def get(self, request):
         """
@@ -1386,7 +1386,7 @@ class PropertySearchView(APIView):
 
                 if distance <= radius:
                     # Get related data
-                    amenities = prop.get_amenities().values().first() or {}
+                    # amenities = prop.get_amenities().values().first() or {}
                     images = list(prop.get_images().values())
                     pois = list(prop.get_pois().values())
 
@@ -1409,7 +1409,7 @@ class PropertySearchView(APIView):
                             'guarantor_required': prop.guarantor_required,
                             'additional_notes': prop.additional_notes
                         },
-                        'amenities': amenities,
+                        # 'amenities': amenities,
                         'images': images,
                         'pois': pois,
                         'distance': round(distance, 2),

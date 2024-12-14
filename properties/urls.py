@@ -31,7 +31,7 @@ urlpatterns = [
     path('validate_address/', AddressValidationView.as_view(), name='validate_address'),
     path("get-all-properties", GetAllPropertiesView.as_view(), name="get-all-properties"),
     path(
-        "<str:property_id>/",
+        "<uuid:property_id>/",
         GetPropertyDetailsView.as_view(),
         name="get-property-details",
     ),

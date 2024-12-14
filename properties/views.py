@@ -1294,6 +1294,16 @@ class PropertySearchView(APIView):
             page = int(request.GET.get('page', 1))
             per_page = int(request.GET.get('per_page', 10))
 
+            #get user data
+            user = request.user
+            lessee_id = user.id
+            wishlist_items = set()
+            if lessee_id:
+                wishlist_items = {str(id) for id in PropertyWishlist.objects.filter(
+                    lessee_id=lessee_id,
+                    is_wishlist=True
+                ).values_list('property_id', flat=True)}
+            
             # Validate location parameter
             if not location:
                 return Response({
@@ -1342,9 +1352,9 @@ class PropertySearchView(APIView):
             if max_rent:
                 properties = properties.filter(rent__lte=float(max_rent))
             if bedrooms:
-                properties = properties.filter(bedrooms=float(bedrooms))
+                properties = properties.filter(bedrooms__gte=float(bedrooms))
             if bathrooms:
-                properties = properties.filter(bathrooms=float(bathrooms))
+                properties = properties.filter(bathrooms__gte=float(bathrooms))
             if property_type:
                 properties = properties.filter(property_type__iexact=property_type)
 
@@ -1415,7 +1425,8 @@ class PropertySearchView(APIView):
                         'coordinates': {
                             'latitude': prop.latitude,
                             'longitude': prop.longitude
-                        }
+                        },
+                        'isInWishlist': str(prop.id) in wishlist_items
                     })
 
             # Paginate results

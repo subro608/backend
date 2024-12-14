@@ -20,6 +20,17 @@ class LocationAnalysisSerializer(serializers.Serializer):
 class PropertyImageSerializer(serializers.Serializer):
     property_id = serializers.CharField(max_length=255)
 
+class AmenitiesSerializer(serializers.Serializer):
+    air_conditioning = serializers.BooleanField(default=False)
+    parking = serializers.BooleanField(default=False)
+    dishwasher = serializers.BooleanField(default=False)
+    heating = serializers.BooleanField(default=False)
+    gym = serializers.BooleanField(default=False)
+    refrigerator = serializers.BooleanField(default=False)
+    laundry = serializers.BooleanField(default=False)
+    swimming_pool = serializers.BooleanField(default=False)
+    microwave = serializers.BooleanField(default=False)
+
 
 class CreatePropertyListingSerializer(serializers.Serializer):
     rent = serializers.FloatField()
@@ -34,15 +45,7 @@ class CreatePropertyListingSerializer(serializers.Serializer):
     available_since = serializers.DateField()
     guarantor_required = serializers.BooleanField(default=False)
     additional_notes = serializers.CharField(allow_blank=True, required=False)
-    air_conditioning = serializers.BooleanField(default=False)
-    parking = serializers.BooleanField(default=False)
-    dishwasher = serializers.BooleanField(default=False)
-    heating = serializers.BooleanField(default=False)
-    gym = serializers.BooleanField(default=False)
-    refrigerator = serializers.BooleanField(default=False)
-    laundry = serializers.BooleanField(default=False)
-    swimming_pool = serializers.BooleanField(default=False)
-    microwave = serializers.BooleanField(default=False)
+    amenities = AmenitiesSerializer()
     description = serializers.CharField()
     latitude = serializers.FloatField(read_only=True)  # Read-only as it's generated
     longitude = serializers.FloatField(read_only=True)  # Read-only as it's generated

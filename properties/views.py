@@ -45,6 +45,7 @@ from househunt.settings import (
 )
 
 from django.core.paginator import Paginator
+from django.db import transaction
 
 print(OPENAI_API_KEY, "OPENAI_API_KEYOPENAI_API_KEYOPENAI_API_KEY")
 # Initialize clients
@@ -406,61 +407,62 @@ class CreatePropertyListingView(APIView):
 
             latitude, longitude, formatted_address = location_info
 
-            # Add the property to the `properties` table with coordinates
-            property_obj = Properties.objects.create(
-                id=uuid.uuid4(),  # Generate a UUID
-                lessor_id=lessor.user_id,  # Use `user_id` since it is the primary key
-                title=validated_data["title"],
-                street_address=validated_data["street_address"],
-                city=validated_data["city"],
-                state=validated_data["state"],
-                zip_code=validated_data["zip_code"],
-                property_type=validated_data["property_type"],
-                bedrooms=validated_data["bedrooms"],
-                bathrooms=validated_data["bathrooms"],
-                created_at=timezone.now(),
-                modified_at=timezone.now(),
-                available_since=validated_data["available_since"],
-                guarantor_required=validated_data["guarantor_required"],
-                additional_notes=validated_data.get("additional_notes", None),
-                rent=validated_data.get("rent", 0),
-                description=validated_data.get("description"),
-                latitude=latitude,  # Add latitude
-                longitude=longitude,  # Add longitude
-            )
+            with transaction.atomic():
+                # Add the property to the `properties` table with coordinates
+                property_obj = Properties.objects.create(
+                    id=uuid.uuid4(),  # Generate a UUID
+                    lessor_id=lessor.user_id,  # Use `user_id` since it is the primary key
+                    title=validated_data["title"],
+                    street_address=validated_data["street_address"],
+                    city=validated_data["city"],
+                    state=validated_data["state"],
+                    zip_code=validated_data["zip_code"],
+                    property_type=validated_data["property_type"],
+                    bedrooms=validated_data["bedrooms"],
+                    bathrooms=validated_data["bathrooms"],
+                    created_at=timezone.now(),
+                    modified_at=timezone.now(),
+                    available_since=validated_data["available_since"],
+                    guarantor_required=validated_data["guarantor_required"],
+                    additional_notes=validated_data.get("additional_notes", None),
+                    rent=validated_data.get("rent", 0),
+                    description=validated_data.get("description"),
+                    latitude=latitude,  # Add latitude
+                    longitude=longitude,  # Add longitude
+                )
 
-            # Add amenities to the `property_amentities` table
-            PropertyAmenities.objects.create(
-                property_id=str(property_obj.id),
-                air_conditioning=validated_data["air_conditioning"],
-                parking=validated_data["parking"],
-                dishwasher=validated_data["dishwasher"],
-                heating=validated_data["heating"],
-                gym=validated_data["gym"],
-                refrigerator=validated_data["refrigerator"],
-                laundry=validated_data["laundry"],
-                swimming_pool=validated_data["swimming_pool"],
-                microwave=validated_data["microwave"],
-                created_at=timezone.now(),
-                modified_at=timezone.now(),
-            )
-
-            return Response(
-                {
-                    "success": True,
-                    "error": False,
-                    "data": {
-                        "property_id": str(property_obj.id),
-                        "coordinates": {
-                            "latitude": latitude,
-                            "longitude": longitude
+                amenities = validated_data["amenities"]
+                # Add amenities to the `property_amentities` table
+                PropertyAmenities.objects.create(
+                    property_id=str(property_obj.id),
+                    air_conditioning=amenities["air_conditioning"],
+                    parking=amenities["parking"],
+                    dishwasher=amenities["dishwasher"],
+                    heating=amenities["heating"],
+                    gym=amenities["gym"],
+                    refrigerator=amenities["refrigerator"],
+                    laundry=amenities["laundry"],
+                    swimming_pool=amenities["swimming_pool"],
+                    microwave=amenities["microwave"],
+                    created_at=timezone.now(),
+                    modified_at=timezone.now(),
+                )
+                return Response(
+                    {
+                        "success": True,
+                        "error": False,
+                        "data": {
+                            "property_id": str(property_obj.id),
+                            "coordinates": {
+                                "latitude": latitude,
+                                "longitude": longitude
+                            },
+                            "formatted_address": formatted_address
                         },
-                        "formatted_address": formatted_address
+                        "message": "Property and amenities added successfully.",
                     },
-                    "message": "Property and amenities added successfully.",
-                },
-                status=status.HTTP_201_CREATED,
-            )
+                    status=status.HTTP_201_CREATED,
+                )
 
         except Exception as e:
             return Response(
@@ -1091,8 +1093,6 @@ class GetPropertyDetailsView(APIView):
             is_deleted=False
         ).first()
 
-        print(property_obj)
-
         if not property_obj:
             return Response(
                 {
@@ -1103,7 +1103,7 @@ class GetPropertyDetailsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        amenities = property_obj.get_amenities().values()
+        amenities = property_obj.get_amenities()
         images = list(property_obj.get_images().values())
         pois = list(property_obj.get_pois().values())
 
@@ -1128,7 +1128,7 @@ class GetPropertyDetailsView(APIView):
             },
             "created_at": property_obj.created_at,
             "modified_at": property_obj.modified_at,
-            "amenities": amenities,
+            "amenities": PropertyAmenitiesSerializer(amenities).data,
             "images": images,
             "pois": pois,
         }

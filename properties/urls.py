@@ -10,7 +10,7 @@ from .views import (
     ModifyPropertyView,
     GetPropertyDetailsView,
     ModifyPropertyView,
-    GetAllPropertiesView,
+    GetMyListings,
     SubmitPropertyForVerificationView,
     AddressValidationView,
     PropertySearchView
@@ -29,7 +29,7 @@ urlpatterns = [
     path('remove/', RemoveWishlistView.as_view(), name='remove-from-wishlist'),
     path("modify/", ModifyPropertyView.as_view(), name="modify-property"), 
     path('validate_address/', AddressValidationView.as_view(), name='validate_address'),
-    path("get-all-properties", GetAllPropertiesView.as_view(), name="get-all-properties"),
+    path("my-listings/", GetMyListings.as_view(), name="get-my-listings"),
     path(
         "<uuid:property_id>/",
         GetPropertyDetailsView.as_view(),

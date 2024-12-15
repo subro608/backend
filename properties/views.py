@@ -364,8 +364,11 @@ class CreatePropertyListingView(APIView):
         # Check if the user is a valid lessor
         if not Lessor.objects.filter(user=user).exists():
             return Response(
-                {"error": "Only valid lessors can create property listings."},
-                status=status.HTTP_403_FORBIDDEN,
+                {
+                    "success": False,
+                    "error": True,
+                    "message": "Only valid lessors can create property listings."
+                },status=status.HTTP_403_FORBIDDEN,
             )
 
         lessor = Lessor.objects.get(user=user)
@@ -375,7 +378,7 @@ class CreatePropertyListingView(APIView):
                 {
                     "success": False,
                     "error": True,
-                    "data": "Only verified lessors can create property listings.",
+                    "message": "Only verified lessors can create property listings.",
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -400,7 +403,7 @@ class CreatePropertyListingView(APIView):
                     {
                         "success": False,
                         "error": True,
-                        "data": f"Failed to get coordinates for address: {error}"
+                        "message": f"Failed to get coordinates for address: {error}"
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
@@ -690,6 +693,95 @@ class GetAllPropertiesView(APIView):
             },
             status=200,
         )
+class GetMyListings(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request):
+        user = request.user
+
+        #check if valid lessor
+        if not Lessor.objects.filter(user=user).exists():
+            return Response({
+                "success":False,
+                "error":True,
+                "message":"Not a valid lessorr"
+                },status= status.HTTP_403_FORBIDDEN)
+        
+        page = request.GET.get("page", 1)  # Default to page 1 if not provided
+        per_page = request.GET.get("per_page", 10)  # Default to 10 items per page
+
+        # Query properties data ordered by `created_at`
+        properties_query = Properties.objects.filter(lessor_id=user.id).order_by("-created_at")
+        paginator = Paginator(properties_query, per_page)
+
+        try:
+            properties_page = paginator.page(page)
+        except:
+            return Response(
+                {
+                    "data": None,
+                    "success": False,
+                    "error": True,
+                    "message": "Invalid page number",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Build response with related data
+        properties_data = []
+        for property in properties_page:
+            # Fetch related amenities, images, and POIs using helper methods
+            amenities = property.get_amenities()
+            images = list(property.get_images().values())
+            pois = list(property.get_pois().values())
+
+            # Add the property data with related data
+            properties_data.append(
+                {
+                    "id": property.id,
+                    "title": property.title,
+                    "rent": property.rent,
+                    "address": {
+                        "street_address": property.street_address,
+                        "city": property.city,
+                        "state": property.state,
+                        "zip_code": property.zip_code,
+                    },
+                    "details": {
+                        "bedrooms": property.bedrooms,
+                        "bathrooms": property.bathrooms,
+                        "property_type": property.property_type,
+                        "guarantor_required": property.guarantor_required,
+                        "description": property.description,
+                    },
+                    "created_at": property.created_at,
+                    "amenities": PropertyAmenitiesSerializer(amenities).data,
+                    "available_since": property.available_since,
+                    "additional_notes": property.additional_notes,
+                    "images": images,
+                    "pois": pois,
+                    "status_verification": property.status_verification,
+                }
+            )
+
+        # Return paginated response
+        response = {
+            "total_count": paginator.count,
+            "total_pages": paginator.num_pages,
+            "current_page": properties_page.number,
+            "properties": properties_data,
+        }
+
+        return Response(
+            {
+                "error": False,
+                "data": response,
+                "success": True,
+                "message": "Properties fetched successfully.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 class SubmitPropertyForVerificationView(APIView):
     permission_classes = [IsAuthenticated]

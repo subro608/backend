@@ -477,6 +477,77 @@ class CreatePropertyListingView(APIView):
 class PropertyWishlistView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self,request):
+        try:
+            user = request.user
+            lessee_id = user.id
+            wishlist_items = PropertyWishlist.objects.filter(
+                lessee_id=lessee_id,
+                is_wishlist=True
+            ).values_list('property_id', flat=True)
+
+            properties_query = Properties.objects.filter(id__in=wishlist_items)
+            properties_query = properties_query.order_by("-created_at")
+
+            page = request.GET.get("page", 1)  # Default to page 1 if not provided
+            per_page = request.GET.get("per_page", 10)  # Default to 10 items per page
+
+            paginator = Paginator(properties_query,per_page)
+            properties_page = paginator.page(page)
+
+            properties_data = []
+            for property in properties_page:
+                # Fetch related amenities, images, and POIs using helper methods
+                amenities = property.get_amenities()
+                images = list(property.get_images().values())
+                pois = list(property.get_pois().values())
+
+                # Add the property data with related data
+                properties_data.append(
+                    {
+                        "id": property.id,
+                        "title": property.title,
+                        "rent": property.rent,
+                        "address": {
+                            "street_address": property.street_address,
+                            "city": property.city,
+                            "state": property.state,
+                            "zip_code": property.zip_code,
+                        },
+                        "details": {
+                            "bedrooms": property.bedrooms,
+                            "bathrooms": property.bathrooms,
+                            "property_type": property.property_type,
+                            "guarantor_required": property.guarantor_required,
+                            "description": property.description,
+                        },
+                        "created_at": property.created_at,
+                        "amenities": PropertyAmenitiesSerializer(amenities).data,
+                        "available_since": property.available_since,
+                        "additional_notes": property.additional_notes,
+                        "images": images,
+                        "pois": pois,
+                        "status_verification": property.status_verification,
+                    }
+                )
+            
+            return Response({
+                'success': True,
+                'error':False,
+                'data':{
+                    "total_count": paginator.count,
+                    "total_pages": paginator.num_pages,
+                    "current_page": properties_page.number,
+                    "properties": properties_data,
+                }
+            }, status= status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': True,
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     def post(self, request):
         try:
             # Validate input data

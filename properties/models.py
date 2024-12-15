@@ -6,11 +6,12 @@
 #   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
+from accounts.models import Lessor
 
 
 class Properties(models.Model):
     id = models.UUIDField(primary_key=True)
-    lessor_id = models.TextField(blank=True, null=True)
+    lessor_id = models.ForeignKey(Lessor, null=True, on_delete=models.CASCADE, to_field="user_id")
     title = models.TextField(blank=True, null=True)
     street_address = models.TextField(blank=True, null=True)
     city = models.TextField(blank=True, null=True)

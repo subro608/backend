@@ -30,9 +30,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-=y@49)5f)jkz$5=-zza$04(zqmza52ftvfxmko!162dvf*19rt"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("ENV", "") == "local"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "room-scout-be-3ca1661c03e0.herokuapp.com",
+    "room-scout-fe-e30e34830f70.herokuapp.com",
+]
 
 
 # Application definition

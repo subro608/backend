@@ -35,17 +35,24 @@ class UserManager(BaseUserManager):
         return user
 
 
+class Role(models.IntegerChoices):
+    ADMIN = 1
+    LESSEE = 2
+    LESSOR = 3
+    VERIFICATION_SUPPORT = 4
+    CUSTOMER_SUPPORT = 5
+
+
 class User(AbstractBaseUser):
-    ROLE_CHOICES = [
-        ("LESSEE", "Lessee"),
-        ("LESSOR", "Lessor"),
-    ]
-    role = models.CharField(
-        max_length=10, choices=ROLE_CHOICES, null=True
-    )  # 'LESSEE' or 'LESSOR'
+
+    role = models.IntegerField(
+        choices=Role.choices, null=True
+    )  # 'ADMIN','LESSEE' or 'LESSOR'
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=15, unique=True)
+    phone_number = models.CharField(max_length=10)
+    phone_code = models.CharField(max_length=3)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(
@@ -60,9 +67,18 @@ class User(AbstractBaseUser):
     created_at = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["phone_number", "role"]
+    REQUIRED_FIELDS = ["phone_number", "phone_code", "role"]
 
     objects = UserManager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("phone_number", "phone_code"),
+                name="ux_phone",
+                violation_error_message="User with given phone number already exists.",
+            ),
+        ]
 
     def __str__(self):
         return self.email
@@ -72,6 +88,16 @@ class User(AbstractBaseUser):
         return timezone.now() < self.verification_expiration
 
 
+class IDCardDocument(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file_name = models.TextField()
+    public_url = models.URLField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "idcard_documents"
+
+
 class Lessee(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -79,18 +105,23 @@ class Lessee(models.Model):
         primary_key=True,
         to_field="id",  # Explicitly reference the UUID field
     )
-    name = models.CharField(max_length=255)
-    email = models.EmailField()  # Independent email field, not a foreign key
-    guarantor_status = models.BooleanField(default=False)
+    document = models.OneToOneField(
+        IDCardDocument, on_delete=models.CASCADE, to_field="id", null=True
+    )
+    is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        managed = False
         db_table = "accounts_lessee"
 
     def __str__(self):
         return f"{self.name} - {self.email}"
 
+class BrokerLicenseType(models.Model):
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.description
 
 class Lessor(models.Model):
     user = models.OneToOneField(
@@ -99,17 +130,17 @@ class Lessor(models.Model):
         primary_key=True,
         to_field="id",  # Explicitly reference the UUID field
     )
-    name = models.CharField(max_length=255)
-    email = models.EmailField()
+
     is_landlord = models.BooleanField(default=True)
-    document_id = models.CharField(max_length=50, unique=True)
+    document_id = models.CharField(max_length=50, unique=True, null=True)
+    license_type = models.ForeignKey(BrokerLicenseType, null=True, on_delete=models.CASCADE)
+    license_number = models.CharField(null=True)
     is_verified = models.BooleanField(default=False)
     verification_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = "accounts_lessor"
-        managed = False  # Since you're using an existing table
 
     def __str__(self):
         return f"{self.name} - {'Landlord' if self.is_landlord else 'Broker'}"

@@ -37,6 +37,9 @@ ALLOWED_HOSTS = [
     "room-scout-fe-e30e34830f70.herokuapp.com",
 ]
 
+if DEBUG:
+    ALLOWED_HOSTS = ["*"]
+
 
 # Application definition
 

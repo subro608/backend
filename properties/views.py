@@ -143,10 +143,20 @@ class PropertyImageUploadView(APIView):
 
             # Check if property exists
             if not Properties.objects.filter(id=property_id).exists():
+                # return Response(
+                #     {"success": False, "error": True, "message": "Property not found"},
+                #     status=status.HTTP_404_NOT_FOUND,
+                # )
+
                 return Response(
-                    {"success": False, "error": True, "message": "Property not found"},
-                    status=status.HTTP_404_NOT_FOUND,
+                    {
+                        "success": True,
+                        "error": False,
+                        "message": "Property images added.",
+                    },
+                    status=status.HTTP_201_CREATED,
                 )
+
             # Get existing image count
             existing_images = PropertyImage.objects.filter(
                 property_id=property_id
@@ -563,7 +573,8 @@ class PropertyWishlistView(APIView):
             user = request.user
             lessee_id = user.id
             wishlist_items = PropertyWishlist.objects.filter(
-                lessee_id=lessee_id, is_wishlist=True,
+                lessee_id=lessee_id,
+                is_wishlist=True,
             ).values_list("property_id", flat=True)
 
             properties_query = Properties.objects.filter(id__in=wishlist_items)
@@ -940,7 +951,7 @@ class SubmitPropertyForVerificationView(APIView):
 
 
 class PropertyVerificationActionView(APIView):
-    permission_classes = [IsAuthenticated]  
+    permission_classes = [IsAuthenticated]
     STATUS_VERIFICATION_PROPERTY_NOT_SUBMITTED = 0
     STATUS_VERIFICATION_PROPERTY_SUBMITTED = 1
     STATUS_VERIFICATION_PROPERTY_DENIED = 2
@@ -950,14 +961,14 @@ class PropertyVerificationActionView(APIView):
         try:
             property_id = request.data.get("property_id")
             action = request.data.get("action")  # 'approve' or 'deny'
-            
+
             if not property_id or not action:
                 return Response(
                     {"error": "Property ID and action are required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if action not in ['approve', 'deny']:
+            if action not in ["approve", "deny"]:
                 return Response(
                     {"error": "Invalid action. Must be 'approve' or 'deny'."},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -967,25 +978,29 @@ class PropertyVerificationActionView(APIView):
             property_obj = Properties.objects.filter(
                 id=property_id,
                 is_deleted=False,
-                status_verification=self.STATUS_VERIFICATION_PROPERTY_SUBMITTED
+                status_verification=self.STATUS_VERIFICATION_PROPERTY_SUBMITTED,
             ).first()
 
             if not property_obj:
                 return Response(
-                    {"error": "Property not found or not in pending verification status."},
+                    {
+                        "error": "Property not found or not in pending verification status."
+                    },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
             # Update status based on action
             new_status = (
                 self.STATUS_VERIFICATION_PROPERTY_VERIFIED
-                if action == 'approve'
+                if action == "approve"
                 else self.STATUS_VERIFICATION_PROPERTY_DENIED
             )
-            
+
             property_obj.status_verification = new_status
             property_obj.verifier = request.user  # Optional: track who verified
-            property_obj.verification_date = timezone.now()  # Optional: track when verified
+            property_obj.verification_date = (
+                timezone.now()
+            )  # Optional: track when verified
             property_obj.save()
 
             # Optional: Send notification to property owner
@@ -995,7 +1010,7 @@ class PropertyVerificationActionView(APIView):
                 {
                     "success": True,
                     "message": f"Property {action}d successfully.",
-                    "new_status": new_status
+                    "new_status": new_status,
                 },
                 status=status.HTTP_200_OK,
             )

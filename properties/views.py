@@ -473,6 +473,59 @@ class CreatePropertyListingView(APIView):
                     created_at=timezone.now(),
                     modified_at=timezone.now(),
                 )
+
+                # Get location coordinates
+                location_info, error = get_location_coordinates(full_address)
+                if not location_info:
+                    print("Address not found")
+
+                # Generate area analysis
+                radius = 500
+                analysis = generate_area_analysis(location_info, radius)
+                json_body = analysis.replace("```json", "").replace("```", "")
+                analysis_output = json.loads(json_body)
+
+                print(analysis_output)
+
+                # Delete existing POIs for the property_id
+                try:
+                    PropertyPois.objects.filter(
+                        property_id=str(property_obj.id)
+                    ).delete()
+                except Exception as e:
+                    # return Response(
+                    #     {"error": f"Failed to delete existing POI data: {str(e)}"},
+                    #     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    # )
+                    print("Error occurred while deleting existing POI data")
+
+                # Insert new POIs into the property_pois table
+                try:
+                    for poi in analysis_output.get("places_of_interest", []):
+                        print(poi)
+                        PropertyPois.objects.create(
+                            property_id=str(
+                                property_obj.id
+                            ),  # Use the validated property_id
+                            poi_name=poi.get("poi_name"),
+                            poi_ratings=poi.get("poi_ratings"),
+                            poi_type=poi.get("poi_type"),
+                            distance=poi.get("distance"),
+                            latitude=poi["coordinates"]["lat"],
+                            longitude=poi["coordinates"]["lng"],
+                        )
+                except Exception as e:
+                    # return Response(
+                    #     {"error": f"Failed to save POI data: {str(e)}"},
+                    #     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    # )
+                    print("Some error occurred while saving POI data")
+
+                # print(location_analysis_response)
+
+                # if location_analysis_response.status_code != status.HTTP_200_OK:
+                #     raise Exception("Failed to generate area analysis")
+
                 return Response(
                     {
                         "success": True,
@@ -491,6 +544,7 @@ class CreatePropertyListingView(APIView):
                 )
 
         except Exception as e:
+            print(e)
             return Response(
                 {
                     "success": False,
@@ -1258,6 +1312,18 @@ class GetPropertyDetailsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Check if property is wishlisted by user
+        is_wishlist = False
+
+        if user_role == 2:
+            lessee_id = user.id
+            is_wishlist_obj = PropertyWishlist.objects.filter(
+                lessee_id=lessee_id, property_id=property_id
+            ).first()
+
+            if is_wishlist_obj:
+                is_wishlist = is_wishlist_obj.is_wishlist
+
         amenities = property_obj.get_amenities()
         images = list(property_obj.get_images().values())
         pois = list(property_obj.get_pois().values())
@@ -1266,6 +1332,7 @@ class GetPropertyDetailsView(APIView):
         result = {
             "id": property_obj.id,
             "title": property_obj.title,
+            "description": property_obj.description,
             "address": {
                 "street_address": property_obj.street_address,
                 "city": property_obj.city,
@@ -1282,6 +1349,7 @@ class GetPropertyDetailsView(APIView):
                 "rent": property_obj.rent,
                 "available_since": property_obj.available_since,
                 "additional_notes": property_obj.additional_notes,
+                "is_wishlist": is_wishlist,
             },
             "created_at": property_obj.created_at,
             "modified_at": property_obj.modified_at,

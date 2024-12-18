@@ -452,6 +452,7 @@ class CreatePropertyListingView(APIView):
                     additional_notes=validated_data.get("additional_notes", None),
                     rent=validated_data.get("rent", 0),
                     description=validated_data.get("description"),
+                    status_verification=0,
                     latitude=latitude,  # Add latitude
                     longitude=longitude,  # Add longitude
                 )
@@ -881,7 +882,73 @@ class SubmitPropertyForVerificationView(APIView):
             )
 
 
-# API View to delete a property
+class PropertyVerificationActionView(APIView):
+    permission_classes = [IsAuthenticated]  
+    STATUS_VERIFICATION_PROPERTY_NOT_SUBMITTED = 0
+    STATUS_VERIFICATION_PROPERTY_SUBMITTED = 1
+    STATUS_VERIFICATION_PROPERTY_DENIED = 2
+    STATUS_VERIFICATION_PROPERTY_VERIFIED = 3
+
+    def post(self, request):
+        try:
+            property_id = request.data.get("property_id")
+            action = request.data.get("action")  # 'approve' or 'deny'
+            
+            if not property_id or not action:
+                return Response(
+                    {"error": "Property ID and action are required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if action not in ['approve', 'deny']:
+                return Response(
+                    {"error": "Invalid action. Must be 'approve' or 'deny'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Fetch the property
+            property_obj = Properties.objects.filter(
+                id=property_id,
+                is_deleted=False,
+                status_verification=self.STATUS_VERIFICATION_PROPERTY_SUBMITTED
+            ).first()
+
+            if not property_obj:
+                return Response(
+                    {"error": "Property not found or not in pending verification status."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Update status based on action
+            new_status = (
+                self.STATUS_VERIFICATION_PROPERTY_VERIFIED
+                if action == 'approve'
+                else self.STATUS_VERIFICATION_PROPERTY_DENIED
+            )
+            
+            property_obj.status_verification = new_status
+            property_obj.verifier = request.user  # Optional: track who verified
+            property_obj.verification_date = timezone.now()  # Optional: track when verified
+            property_obj.save()
+
+            # Optional: Send notification to property owner
+            # notify_property_owner(property_obj, action)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": f"Property {action}d successfully.",
+                    "new_status": new_status
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            print(f"Error in PropertyVerificationActionView: {str(e)}")
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class RemoveWishlistView(APIView):

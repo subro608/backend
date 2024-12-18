@@ -13,7 +13,8 @@ from .views import (
     GetMyListings,
     SubmitPropertyForVerificationView,
     AddressValidationView,
-    PropertySearchView
+    PropertySearchView,
+    PropertyVerificationActionView,
 
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -37,5 +38,6 @@ urlpatterns = [
     ),
     path("submit-verification/", SubmitPropertyForVerificationView.as_view(), name="submit_property_for_verification"),
     path('search/', PropertySearchView.as_view(), name='property-search'),
+    path('verify/', PropertyVerificationActionView.as_view(), name='property-verification-action')
 ]
 

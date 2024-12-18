@@ -563,7 +563,7 @@ class PropertyWishlistView(APIView):
             user = request.user
             lessee_id = user.id
             wishlist_items = PropertyWishlist.objects.filter(
-                lessee_id=lessee_id, is_wishlist=True
+                lessee_id=lessee_id, is_wishlist=True,
             ).values_list("property_id", flat=True)
 
             properties_query = Properties.objects.filter(id__in=wishlist_items)
@@ -607,6 +607,7 @@ class PropertyWishlistView(APIView):
                         "additional_notes": property.additional_notes,
                         "images": images,
                         "pois": pois,
+                        "is_deleted": property.is_deleted,
                         "status_verification": property.status_verification,
                     }
                 )
@@ -755,6 +756,7 @@ class GetAllPropertiesView(APIView):
                     "images": images,
                     "pois": pois,
                     "status_verification": property.status_verification,
+                    "is_deleted": property.is_deleted,
                 }
             )
 
@@ -846,6 +848,7 @@ class GetMyListings(APIView):
                     "images": images,
                     "pois": pois,
                     "status_verification": property.status_verification,
+                    "is_deleted": property.is_deleted,
                 }
             )
 
@@ -1690,6 +1693,7 @@ class PropertySearchView(APIView):
                                 "longitude": prop.longitude,
                             },
                             "isInWishlist": str(prop.id) in wishlist_items,
+                            "status_verification": prop.status_verification,
                         }
                     )
 

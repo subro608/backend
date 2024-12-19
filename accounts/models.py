@@ -117,11 +117,13 @@ class Lessee(models.Model):
     def __str__(self):
         return f"{self.name} - {self.email}"
 
+
 class BrokerLicenseType(models.Model):
     description = models.CharField(max_length=255)
 
     def __str__(self):
         return self.description
+
 
 class Lessor(models.Model):
     user = models.OneToOneField(
@@ -133,8 +135,10 @@ class Lessor(models.Model):
 
     is_landlord = models.BooleanField(default=True)
     document_id = models.CharField(max_length=50, unique=True, null=True)
-    license_type = models.ForeignKey(BrokerLicenseType, null=True, on_delete=models.CASCADE)
-    license_number = models.CharField(null=True)
+    license_type = models.ForeignKey(
+        BrokerLicenseType, null=True, on_delete=models.CASCADE
+    )
+    license_number = models.CharField(max_length=50, null=True)
     is_verified = models.BooleanField(default=False)
     verification_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)

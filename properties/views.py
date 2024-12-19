@@ -143,19 +143,19 @@ class PropertyImageUploadView(APIView):
 
             # Check if property exists
             if not Properties.objects.filter(id=property_id).exists():
-                # return Response(
-                #     {"success": False, "error": True, "message": "Property not found"},
-                #     status=status.HTTP_404_NOT_FOUND,
-                # )
-
                 return Response(
-                    {
-                        "success": True,
-                        "error": False,
-                        "message": "Property images added.",
-                    },
-                    status=status.HTTP_201_CREATED,
+                    {"success": False, "error": True, "message": "Property not found"},
+                    status=status.HTTP_404_NOT_FOUND,
                 )
+
+                # return Response(
+                #     {
+                #         "success": True,
+                #         "error": False,
+                #         "message": "Property images added.",
+                #     },
+                #     status=status.HTTP_201_CREATED,
+                # )
 
             # Get existing image count
             existing_images = PropertyImage.objects.filter(

@@ -17,16 +17,6 @@
 
 ---
 
-## 📊 Tech Stack  
-
-- **Backend:** Python, Flask/FastAPI, PostgreSQL  
-- **Frontend:** React.js, Next.js, TailwindCSS  
-- **Authentication:** Firebase Auth, JWT  
-- **Testing:** Jest, Pytest (87% Code Coverage)  
-- **Infrastructure:** AWS EC2, Docker, CI/CD  
-
----
-
 ## 🛠 Development & Testing  
 
 - **Agile Development:** Scrum methodology (153 Story Points, 24 User Stories)  

@@ -1,7 +1,3 @@
-Here's the **README** without the code formatting:
-
----
-
 # RoomScout 🏠  
 
 ### A Student-Focused Real Estate Platform  
